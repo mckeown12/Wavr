@@ -16,7 +16,7 @@ Show your hand to start playing. Remove it to stop.
 
 ## Features
 
-- **3 synth modes** — FM Synth, Clean Wave, Warm Tone
+- **7 synth modes** — FM Synth, Clean Wave, Warm Tone, Pad, Theremin, Organ, Bitcrush
 - **10 musical scales** — Major, Minor, Pentatonic, Blues, Dorian, Mixolydian, Harmonic Minor, Whole Tone, and more
 - **Root note selector** — Transpose the scale to any key
 - **Glide control** — Snap instantly to scale notes or morph slowly between them (portamento)
