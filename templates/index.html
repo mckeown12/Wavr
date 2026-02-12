@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Thermin</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <h1 class="title">Visual Thermin</h1>
+        <p class="subtitle">Computer Vision-Powered Frequency Modulator</p>
+    </header>
+
+    <main class="main">
+        <!-- Webcam -->
+        <section class="webcam-panel">
+            <div class="webcam-container">
+                <video id="webcam" autoplay playsinline></video>
+                <canvas id="overlay"></canvas>
+                <div id="no-camera" class="no-camera">
+                    <p>Camera access needed</p>
+                    <p class="small">Allow camera permissions to play</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Controls -->
+        <section class="controls-panel">
+
+            <!-- Per-hand metrics -->
+            <div class="card metrics-card">
+                <div id="hand-metrics">
+                    <!-- Hand 1 (always shown) -->
+                    <div class="hand-row" id="hand-0-row">
+                        <span class="hand-badge coral">Hand 1</span>
+                        <div class="metrics-row">
+                            <div class="metric">
+                                <span class="metric-label">Note</span>
+                                <span class="metric-value frequency-value" id="hand-0-freq">--</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Volume</span>
+                                <span class="metric-value volume-value" id="hand-0-vol">--%</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Filter</span>
+                                <span class="metric-value filter-value" id="hand-0-filter">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Hand 2 (shown when multi-hand enabled) -->
+                    <div class="hand-row hidden" id="hand-1-row">
+                        <span class="hand-badge turquoise">Hand 2</span>
+                        <div class="metrics-row">
+                            <div class="metric">
+                                <span class="metric-label">Note</span>
+                                <span class="metric-value frequency-value" id="hand-1-freq">--</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Volume</span>
+                                <span class="metric-value volume-value" id="hand-1-vol">--%</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">Filter</span>
+                                <span class="metric-value filter-value" id="hand-1-filter">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="status" id="status">
+                    <span class="status-dot"></span>
+                    Show hand to play
+                </div>
+            </div>
+
+            <!-- Settings card -->
+            <div class="card settings-card">
+                <h2 class="card-title">Settings</h2>
+                <div class="settings-grid">
+                    <!-- Synth mode -->
+                    <div class="setting">
+                        <label for="synth-select">Synth</label>
+                        <select id="synth-select">
+                            <option value="fm">FM Synth</option>
+                            <option value="clean">Clean Wave</option>
+                            <option value="warm">Warm Tone</option>
+                        </select>
+                    </div>
+
+                    <!-- Waveform (Clean Wave mode) -->
+                    <div class="setting hidden" id="waveform-setting">
+                        <label for="waveform-select">Wave</label>
+                        <select id="waveform-select">
+                            <option value="sine">Sine</option>
+                            <option value="sawtooth">Sawtooth</option>
+                        </select>
+                    </div>
+
+                    <!-- Scale -->
+                    <div class="setting">
+                        <label for="scale-select">Scale</label>
+                        <select id="scale-select">
+                            <option value="chromatic">Chromatic</option>
+                            <option value="major" selected>Major</option>
+                            <option value="minor">Natural Minor</option>
+                            <option value="pentatonic">Pentatonic Major</option>
+                            <option value="pent_minor">Pentatonic Minor</option>
+                            <option value="blues">Blues</option>
+                            <option value="dorian">Dorian</option>
+                            <option value="mixolydian">Mixolydian</option>
+                            <option value="harmonic_min">Harmonic Minor</option>
+                            <option value="whole_tone">Whole Tone</option>
+                        </select>
+                    </div>
+
+                    <!-- Root note -->
+                    <div class="setting">
+                        <label for="root-select">Root</label>
+                        <select id="root-select">
+                            <option value="48">C</option>
+                            <option value="49">C#</option>
+                            <option value="50">D</option>
+                            <option value="51">D#</option>
+                            <option value="52">E</option>
+                            <option value="53">F</option>
+                            <option value="54">F#</option>
+                            <option value="55">G</option>
+                            <option value="56">G#</option>
+                            <option value="57">A</option>
+                            <option value="58">A#</option>
+                            <option value="59">B</option>
+                        </select>
+                    </div>
+
+                    <!-- Glide -->
+                    <div class="setting setting-wide">
+                        <label for="glide-slider">
+                            Glide
+                            <span class="setting-hint" id="glide-label">Snap</span>
+                        </label>
+                        <input type="range" id="glide-slider" min="0" max="500" value="20" step="10">
+                    </div>
+
+                    <!-- Multi-hand toggle -->
+                    <div class="setting">
+                        <label for="multihand-toggle">Hands</label>
+                        <label class="toggle">
+                            <input type="checkbox" id="multihand-toggle">
+                            <span class="toggle-track">
+                                <span class="toggle-label-off">1</span>
+                                <span class="toggle-label-on">2</span>
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- How to play -->
+            <div class="card how-to-play">
+                <h2 class="card-title">How to Play</h2>
+                <ul class="instructions">
+                    <li>
+                        <span class="instruction-icon">&#8596;</span>
+                        <div>
+                            <strong>Pitch</strong>
+                            <span>Move hand left or right</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="instruction-icon">&#8597;</span>
+                        <div>
+                            <strong>Volume</strong>
+                            <span>Move hand up or down</span>
+                        </div>
+                    </li>
+                    <li>
+                        <span class="instruction-icon">&#9994;&#9995;</span>
+                        <div>
+                            <strong>Filter</strong>
+                            <span>Make a fist or open hand</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+
+    <script src="{{ url_for('static', filename='js/audio-engine.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/hand-tracking.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
