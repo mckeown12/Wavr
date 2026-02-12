@@ -77,7 +77,7 @@ body {
 /* === Main Layout === */
 .main {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1.2fr;
     gap: 1.5rem;
     padding: 1.5rem;
     max-width: 1400px;
@@ -139,7 +139,7 @@ body {
 .card {
     background: var(--card-bg);
     border-radius: var(--card-radius);
-    padding: 1.5rem;
+    padding: 1.5rem 2rem;
     box-shadow: 0 4px 20px var(--card-shadow), 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
@@ -161,6 +161,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    min-width: 0;
 }
 
 .metric-label {
@@ -172,18 +173,23 @@ body {
 }
 
 .metric-value {
-    font-size: clamp(1.8rem, 3vw, 2.5rem);
+    font-size: clamp(1.4rem, 2.5vw, 2rem);
     font-weight: 700;
     transition: color 0.3s ease;
     line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .frequency-value {
     color: var(--coral);
+    font-variant-numeric: tabular-nums;
 }
 
 .volume-value {
     color: var(--turquoise);
+    font-variant-numeric: tabular-nums;
 }
 
 .filter-value {
