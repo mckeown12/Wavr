@@ -146,7 +146,7 @@ All JavaScript is vanilla ES modules or script tags. No bundler needed.
 ## File Structure
 
 ```
-VisualThermin/
+Wavr/
 ├── SPEC.md               # This file
 ├── app.py                # Flask server
 ├── requirements.txt      # Python deps (flask)

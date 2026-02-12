@@ -70,7 +70,7 @@ chromium-browser --kiosk http://localhost:5050
 ## Project Structure
 
 ```
-VisualThermin/
+Wavr/
 ├── app.py                    # Flask server
 ├── requirements.txt          # flask
 ├── SPEC.md                   # Full specification
