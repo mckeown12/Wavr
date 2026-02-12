@@ -196,6 +196,111 @@ const AudioEngine = (() => {
             osc.start();
 
             voice.nodes = { osc, delay, delayGain };
+
+        } else if (currentMode === 'pad') {
+            // 3 detuned oscillators for lush ambient pad
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            const osc3 = ctx.createOscillator();
+            osc1.type = 'sine';
+            osc2.type = 'sine';
+            osc3.type = 'triangle';
+            osc1.frequency.value = 220;
+            osc2.frequency.value = 220 * 1.005;
+            osc3.frequency.value = 220 * 0.995;
+
+            const mix = ctx.createGain();
+            mix.gain.value = 0.4;
+
+            osc1.connect(mix);
+            osc2.connect(mix);
+            osc3.connect(mix);
+            mix.connect(voice.filter);
+
+            osc1.start();
+            osc2.start();
+            osc3.start();
+
+            voice.nodes = { osc1, osc2, osc3, mix };
+
+        } else if (currentMode === 'theremin') {
+            // Classic theremin: sine + vibrato LFO
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.value = 220;
+
+            const lfo = ctx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 5.5;
+
+            const lfoGain = ctx.createGain();
+            lfoGain.gain.value = 4;
+
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+            osc.connect(voice.filter);
+
+            osc.start();
+            lfo.start();
+
+            voice.nodes = { osc, lfo, lfoGain };
+
+        } else if (currentMode === 'organ') {
+            // Additive harmonics: fundamental + 2nd + 3rd
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            const osc3 = ctx.createOscillator();
+            osc1.type = 'sine';
+            osc2.type = 'sine';
+            osc3.type = 'sine';
+            osc1.frequency.value = 220;
+            osc2.frequency.value = 440;
+            osc3.frequency.value = 660;
+
+            const gain1 = ctx.createGain();
+            const gain2 = ctx.createGain();
+            const gain3 = ctx.createGain();
+            gain1.gain.value = 0.5;
+            gain2.gain.value = 0.25;
+            gain3.gain.value = 0.15;
+
+            osc1.connect(gain1);
+            osc2.connect(gain2);
+            osc3.connect(gain3);
+            gain1.connect(voice.filter);
+            gain2.connect(voice.filter);
+            gain3.connect(voice.filter);
+
+            osc1.start();
+            osc2.start();
+            osc3.start();
+
+            voice.nodes = { osc1, osc2, osc3, gain1, gain2, gain3 };
+
+        } else if (currentMode === 'bitcrush') {
+            // Lo-fi: sawtooth through waveshaper distortion
+            const osc = ctx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.value = 220;
+
+            const shaper = ctx.createWaveShaper();
+            const samples = 256;
+            const curve = new Float32Array(samples);
+            for (let i = 0; i < samples; i++) {
+                const x = (i * 2) / samples - 1;
+                // Staircase quantization for bitcrush effect
+                const steps = 8;
+                curve[i] = Math.round(x * steps) / steps;
+            }
+            shaper.curve = curve;
+            shaper.oversample = 'none';
+
+            osc.connect(shaper);
+            shaper.connect(voice.filter);
+
+            osc.start();
+
+            voice.nodes = { osc, shaper };
         }
     }
 
@@ -276,6 +381,41 @@ const AudioEngine = (() => {
             o.frequency.linearRampToValueAtTime(freq, now + ramp);
 
         } else if (currentMode === 'warm' && voice.nodes.osc) {
+            const o = voice.nodes.osc;
+            o.frequency.cancelScheduledValues(now);
+            o.frequency.setValueAtTime(o.frequency.value, now);
+            o.frequency.linearRampToValueAtTime(freq, now + ramp);
+
+        } else if (currentMode === 'pad' && voice.nodes.osc1) {
+            const oscs = [voice.nodes.osc1, voice.nodes.osc2, voice.nodes.osc3];
+            const detune = [1, 1.005, 0.995];
+            for (let i = 0; i < oscs.length; i++) {
+                oscs[i].frequency.cancelScheduledValues(now);
+                oscs[i].frequency.setValueAtTime(oscs[i].frequency.value, now);
+                oscs[i].frequency.linearRampToValueAtTime(freq * detune[i], now + ramp);
+            }
+
+        } else if (currentMode === 'theremin' && voice.nodes.osc) {
+            const o = voice.nodes.osc;
+            o.frequency.cancelScheduledValues(now);
+            o.frequency.setValueAtTime(o.frequency.value, now);
+            o.frequency.linearRampToValueAtTime(freq, now + ramp);
+            // Scale vibrato depth with frequency
+            const lg = voice.nodes.lfoGain;
+            lg.gain.cancelScheduledValues(now);
+            lg.gain.setValueAtTime(lg.gain.value, now);
+            lg.gain.linearRampToValueAtTime(freq * 0.02, now + ramp);
+
+        } else if (currentMode === 'organ' && voice.nodes.osc1) {
+            const oscs = [voice.nodes.osc1, voice.nodes.osc2, voice.nodes.osc3];
+            const harmonics = [1, 2, 3];
+            for (let i = 0; i < oscs.length; i++) {
+                oscs[i].frequency.cancelScheduledValues(now);
+                oscs[i].frequency.setValueAtTime(oscs[i].frequency.value, now);
+                oscs[i].frequency.linearRampToValueAtTime(freq * harmonics[i], now + ramp);
+            }
+
+        } else if (currentMode === 'bitcrush' && voice.nodes.osc) {
             const o = voice.nodes.osc;
             o.frequency.cancelScheduledValues(now);
             o.frequency.setValueAtTime(o.frequency.value, now);
