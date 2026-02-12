@@ -36,7 +36,7 @@ No build step. No bundler. No npm.
 
 ```bash
 # Clone
-git clone https://github.com/yourusername/Wavr.git
+git clone https://github.com/MarioCruz/Wavr.git
 cd Wavr
 
 # Create virtual environment
