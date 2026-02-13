@@ -2,7 +2,7 @@
 
 A computer vision-powered frequency modulator that turns your hand gestures into music. Wave your hands in front of a webcam to control pitch, volume, and filter — like a theremin, but with your camera.
 
-Built to run on a Raspberry Pi 5.
+Pure client-side web app. No backend required.
 
 ## How It Works
 
@@ -25,12 +25,11 @@ Show your hand to start playing. Remove it to stop.
 
 ## Tech Stack
 
-- **Backend:** Python / Flask
-- **Hand tracking:** MediaPipe Hands (runs client-side in the browser)
+- **Hand tracking:** MediaPipe Hands (client-side in the browser)
 - **Audio:** Web Audio API (FM synthesis, filters, gain)
 - **UI:** Vanilla HTML/CSS/JS, Google Fonts (Pacifico + Inter)
 
-No build step. No bundler. No npm.
+No backend. No build step. No bundler. No npm. Just open `index.html` in a browser.
 
 ## Setup
 
@@ -39,31 +38,46 @@ No build step. No bundler. No npm.
 git clone https://github.com/MarioCruz/Wavr.git
 cd Wavr
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+# Option 1: Open directly in browser
+open index.html
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Run
-python app.py
+# Option 2: Serve with a local HTTP server (recommended for full functionality)
+python3 -m http.server 5050
+# or
+npx serve
 ```
 
 Open **http://localhost:5050** in your browser and allow camera access.
 
+### GitHub Pages
+
+This app is hosted live at: **[https://mariocruz.github.io/Wavr](https://mariocruz.github.io/Wavr)**
+
+To deploy your own:
+1. Push to GitHub
+2. Go to Settings → Pages
+3. Set Source to "Deploy from a branch"
+4. Select `main` branch and `/ (root)` folder
+5. Save and wait for deployment
+
 ## Raspberry Pi 5 Deployment
 
 ```bash
-# Same setup as above, then:
-python app.py
+# Clone the repo
+git clone https://github.com/MarioCruz/Wavr.git
+cd Wavr
+
+# Serve locally (optional, or just open index.html)
+python3 -m http.server 5050 --bind 0.0.0.0
 ```
 
-The server binds to `0.0.0.0:5050` so you can access it from any device on your LAN at `http://<pi-ip>:5050`.
+Access from any device on your LAN at `http://<pi-ip>:5050`.
 
 For kiosk mode:
 
 ```bash
+chromium-browser --kiosk index.html
+# or
 chromium-browser --kiosk http://localhost:5050
 ```
 
@@ -71,19 +85,16 @@ chromium-browser --kiosk http://localhost:5050
 
 ```
 Wavr/
-├── app.py                    # Flask server
-├── requirements.txt          # flask
+├── index.html                # Main HTML file
 ├── SPEC.md                   # Full specification
 ├── CLAUDE.md                 # Dev guide for Claude Code
-├── static/
-│   ├── css/
-│   │   └── style.css         # Beach Boys themed UI
-│   └── js/
-│       ├── audio-engine.js   # Multi-voice Web Audio synth + scale quantization
-│       ├── hand-tracking.js  # MediaPipe hand detection + gesture extraction
-│       └── app.js            # Main controller wiring tracking → audio → UI
-└── templates/
-    └── index.html            # Jinja2 template
+└── static/
+    ├── css/
+    │   └── style.css         # Beach Boys themed UI
+    └── js/
+        ├── audio-engine.js   # Multi-voice Web Audio synth + scale quantization
+        ├── hand-tracking.js  # MediaPipe hand detection + gesture extraction
+        └── app.js            # Main controller wiring tracking → audio → UI
 ```
 
 ## License

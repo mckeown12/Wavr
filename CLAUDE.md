@@ -2,23 +2,25 @@
 
 ## What is this project?
 
-Visual Thermin is a web-based musical instrument controlled by hand gestures via webcam. Flask serves the page; all hand tracking and audio synthesis runs client-side in the browser using MediaPipe Hands and Web Audio API.
+Visual Thermin is a web-based musical instrument controlled by hand gestures via webcam. It's a pure static site with no backend — all hand tracking and audio synthesis runs client-side in the browser using MediaPipe Hands and Web Audio API.
 
 ## Quick Start
 
 ```bash
-source venv/bin/activate
-python app.py
+# Option 1: Open directly
+open index.html
+
+# Option 2: Serve with HTTP server
+python3 -m http.server 5050
 # → http://localhost:5050
 ```
 
 ## Architecture
 
-- **Flask (`app.py`)** — Minimal server. Serves `index.html` and static files. Binds `0.0.0.0:5050`.
+- **`index.html`** — Main HTML file. Loads Google Fonts, MediaPipe from CDN, local CSS/JS. No backend required.
 - **`static/js/hand-tracking.js`** — Wraps MediaPipe Hands. Detects 1-2 hands, extracts X/Y position and fist/open gesture. Returns array of hand data objects per frame.
 - **`static/js/audio-engine.js`** — Multi-voice Web Audio synth. Each detected hand gets its own voice (oscillator chain + gain + filter). Handles scale quantization and glide/portamento. Seven synth modes: FM, Clean, Warm, Pad, Theremin, Organ, Bitcrush.
 - **`static/js/app.js`** — IIFE that wires hand tracking callbacks to audio engine and DOM updates. Manages settings UI (scale, root, glide, synth mode, multi-hand toggle).
-- **`templates/index.html`** — Jinja2 template. Loads Google Fonts, MediaPipe from CDN, local CSS/JS.
 - **`static/css/style.css`** — Beach Boys aesthetic: sunset gradients, coral/turquoise/sky palette, Pacifico font.
 
 ## Key Concepts
@@ -53,15 +55,16 @@ MediaPipe frame → HandTracking.processResults()
 
 ## Conventions
 
-- No build step, no bundler — all vanilla JS loaded via `<script>` tags
+- Pure static site — no backend, no build step, no bundler
+- All vanilla JS loaded via `<script>` tags
 - Modules use the revealing module pattern (IIFE returning public API)
 - CSS uses custom properties defined in `:root`
-- Python virtual environment in `venv/` (gitignored)
-- Target platform: Raspberry Pi 5 + Chromium
+- Target platform: Modern browsers with webcam (Chrome, Firefox, Edge)
+- Can be deployed to GitHub Pages, Netlify, or any static host
 
 ## Testing
 
-Open http://localhost:5050 in a browser with a webcam. Verify:
+Open `index.html` in a browser with a webcam (or serve via `python3 -m http.server 5050`). Verify:
 1. Camera feed appears in the left panel
 2. Show hand → audio plays, metrics update
 3. Change scale/root → notes snap to correct pitches
@@ -78,4 +81,3 @@ Open http://localhost:5050 in a browser with a webcam. Verify:
 | Change the sound | `audio-engine.js` (setupModeNodes functions) |
 | Add a new gesture | `hand-tracking.js` (extractHandData) + `app.js` (onHandData) |
 | Modify the layout/theme | `style.css` + `index.html` |
-| Add a Flask API route | `app.py` |
