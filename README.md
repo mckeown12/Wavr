@@ -1,4 +1,4 @@
-# Visual Thermin
+# Visual Theremin
 
 A computer vision-powered frequency modulator that turns your hand gestures into music. Wave your hands in front of a webcam to control pitch, volume, and filter — like a theremin, but with your camera.
 

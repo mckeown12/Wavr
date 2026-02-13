@@ -2,7 +2,7 @@
 
 ## What is this project?
 
-Visual Thermin is a web-based musical instrument controlled by hand gestures via webcam. It's a pure static site with no backend — all hand tracking and audio synthesis runs client-side in the browser using MediaPipe Hands and Web Audio API.
+Visual Theremin is a web-based musical instrument controlled by hand gestures via webcam. It's a pure static site with no backend — all hand tracking and audio synthesis runs client-side in the browser using MediaPipe Hands and Web Audio API.
 
 ## Quick Start
 

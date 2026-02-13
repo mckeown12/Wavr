@@ -71,7 +71,18 @@ const HandTracking = (() => {
         const x = (wrist.x + palm.x) / 2;
         const y = (wrist.y + palm.y) / 2;
         const openness = getOpenness(landmarks);
-        return { x, y, openness };
+
+        // Extract individual finger tip positions
+        // Finger tip landmarks: thumb=4, index=8, middle=12, ring=16, pinky=20
+        const fingers = [
+            { id: 4, name: 'thumb', x: landmarks[4].x, y: landmarks[4].y },
+            { id: 8, name: 'index', x: landmarks[8].x, y: landmarks[8].y },
+            { id: 12, name: 'middle', x: landmarks[12].x, y: landmarks[12].y },
+            { id: 16, name: 'ring', x: landmarks[16].x, y: landmarks[16].y },
+            { id: 20, name: 'pinky', x: landmarks[20].x, y: landmarks[20].y },
+        ];
+
+        return { x, y, openness, fingers };
     }
 
     function processResults(results) {

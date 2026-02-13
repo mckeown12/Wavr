@@ -5,15 +5,18 @@
 
 const AudioEngine = (() => {
     let ctx = null;
+    let audioDestination = null; // for recording
     let currentMode = 'fm';
     let currentWaveform = 'sine'; // for clean mode: 'sine' or 'sawtooth'
+    let customWaveData = null; // for custom drawn waveforms
+    let customPeriodicWave = null;
     let currentScale = 'chromatic';
     let rootNote = 48; // C3 MIDI note
     let glideTime = 0.08; // seconds — 0 = snap, higher = glide
 
-    // Frequency range
-    const FREQ_MIN = 65;    // C2
-    const FREQ_MAX = 1047;  // C6
+    // Frequency range (configurable)
+    let FREQ_MIN = 65;    // C2 (MIDI 36)
+    let FREQ_MAX = 1047;  // C6 (MIDI 84)
     const FILTER_MIN = 200;
     const FILTER_MAX = 8000;
 
@@ -69,17 +72,15 @@ const AudioEngine = (() => {
         let bestDist = Infinity;
 
         // Check notes in a range around the raw MIDI value
-        const baseMidi = Math.floor(midi) - 12;
-        for (let oct = 0; oct < 3; oct++) {
+        // baseMidi should be at the start of an octave (multiple of 12)
+        const baseMidi = Math.floor(midi / 12 - 1) * 12;
+        for (let oct = 0; oct < 4; oct++) {
             for (const pc of scale.notes) {
                 const candidate = baseMidi + oct * 12 + ((pc + rootPitchClass) % 12);
-                // Also check one octave shift of candidate
-                for (const c of [candidate, candidate + 12]) {
-                    const d = Math.abs(c - midi);
-                    if (d < bestDist) {
-                        bestDist = d;
-                        bestMidi = c;
-                    }
+                const d = Math.abs(candidate - midi);
+                if (d < bestDist) {
+                    bestDist = d;
+                    bestMidi = candidate;
                 }
             }
         }
@@ -107,6 +108,15 @@ const AudioEngine = (() => {
     function ensureContext() {
         if (ctx) return;
         ctx = new (window.AudioContext || window.webkitAudioContext)();
+        audioDestination = ctx.createMediaStreamDestination();
+    }
+
+    /**
+     * Get the audio stream for recording.
+     */
+    function getAudioStream() {
+        ensureContext();
+        return audioDestination.stream;
     }
 
     // ---- Voice management ----
@@ -133,6 +143,7 @@ const AudioEngine = (() => {
 
         voice.filter.connect(voice.gain);
         voice.gain.connect(ctx.destination);
+        voice.gain.connect(audioDestination); // Also connect to recording destination
 
         setupModeNodes(voice);
         voice.playing = true;
@@ -169,7 +180,14 @@ const AudioEngine = (() => {
 
         } else if (currentMode === 'clean') {
             const osc = ctx.createOscillator();
-            osc.type = currentWaveform;
+
+            // Use custom wave if available, otherwise standard waveform
+            if (customPeriodicWave) {
+                osc.setPeriodicWave(customPeriodicWave);
+            } else {
+                osc.type = currentWaveform;
+            }
+
             osc.frequency.value = 220;
             osc.connect(voice.filter);
             osc.start();
@@ -475,7 +493,37 @@ const AudioEngine = (() => {
 
     function setWaveform(type) {
         currentWaveform = type;
+        customWaveData = null;
+        customPeriodicWave = null;
         // Rebuild clean voices so the new waveform takes effect
+        if (currentMode === 'clean') {
+            for (const voice of Object.values(voices)) {
+                setupModeNodes(voice);
+            }
+        }
+    }
+
+    /**
+     * Set a custom waveform from drawn data.
+     */
+    function setCustomWave(waveData) {
+        ensureContext();
+        customWaveData = waveData;
+
+        // Create PeriodicWave from the drawn data
+        // We need to convert time-domain data to frequency-domain (Fourier coefficients)
+        // For simplicity, we'll use the waveData directly as the wave shape
+        const real = new Float32Array(waveData.length);
+        const imag = new Float32Array(waveData.length);
+
+        for (let i = 0; i < waveData.length; i++) {
+            real[i] = waveData[i];
+            imag[i] = 0;
+        }
+
+        customPeriodicWave = ctx.createPeriodicWave(real, imag);
+
+        // Rebuild clean voices if active
         if (currentMode === 'clean') {
             for (const voice of Object.values(voices)) {
                 setupModeNodes(voice);
@@ -506,9 +554,69 @@ const AudioEngine = (() => {
         return name + octave;
     }
 
+    /**
+     * Set frequency range.
+     */
+    function setFreqRange(minFreq, maxFreq) {
+        FREQ_MIN = minFreq;
+        FREQ_MAX = maxFreq;
+    }
+
+    /**
+     * Get current frequency range.
+     */
+    function getFreqRange() {
+        return { min: FREQ_MIN, max: FREQ_MAX };
+    }
+
+    /**
+     * Get all notes in the current scale within the frequency range.
+     * Returns array of { midi, freq, name } for drawing vertical lines.
+     */
+    function getScaleNotes() {
+        const minMidi = Math.ceil(freqToMidi(FREQ_MIN));
+        const maxMidi = Math.floor(freqToMidi(FREQ_MAX));
+        const notes = [];
+
+        if (currentScale === 'chromatic') {
+            // All semitones
+            for (let midi = minMidi; midi <= maxMidi; midi++) {
+                notes.push({
+                    midi,
+                    freq: midiToFreq(midi),
+                    name: getNoteName(midiToFreq(midi))
+                });
+            }
+        } else {
+            const scale = SCALES[currentScale];
+            if (!scale) return notes;
+
+            const rootPitchClass = rootNote % 12;
+
+            // Find all notes in scale within range
+            for (let midi = minMidi; midi <= maxMidi; midi++) {
+                const pitchClass = midi % 12;
+                // Check if this pitch class is in the scale (transposed by root)
+                const scalePitchClass = (pitchClass - rootPitchClass + 12) % 12;
+                if (scale.notes.includes(scalePitchClass)) {
+                    notes.push({
+                        midi,
+                        freq: midiToFreq(midi),
+                        name: getNoteName(midiToFreq(midi))
+                    });
+                }
+            }
+        }
+
+        return notes;
+    }
+
     return {
         updateVoice, stopVoice, stopAll,
-        setMode, setScale, setRootNote, setGlideTime, setWaveform,
+        setMode, setScale, setRootNote, setGlideTime, setWaveform, setCustomWave,
+        setFreqRange, getFreqRange, getScaleNotes,
         getScales, getFrequency, getNoteName,
+        midiToFreq, freqToMidi,
+        getAudioStream,
     };
 })();

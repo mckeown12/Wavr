@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Wavr — a web-based visual theremin controlled by hand gestures via webcam. Wave your hands to control pitch, volume, and filter in real time.">
-    <title>Wavr — Visual Thermin</title>
+    <title>Wavr — Visual Theremin</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +14,7 @@
 </head>
 <body>
     <header class="header">
-        <h1 class="title">Visual Thermin</h1>
+        <h1 class="title">Visual Theremin</h1>
         <p class="subtitle">Computer Vision-Powered Frequency Modulator</p>
     </header>
 
@@ -145,6 +145,28 @@
                         </select>
                     </div>
 
+                    <!-- Lowest note -->
+                    <div class="setting">
+                        <label for="low-note-select">Low</label>
+                        <select id="low-note-select">
+                            <option value="24">C1</option>
+                            <option value="36" selected>C2</option>
+                            <option value="48">C3</option>
+                            <option value="60">C4</option>
+                        </select>
+                    </div>
+
+                    <!-- Highest note -->
+                    <div class="setting">
+                        <label for="high-note-select">High</label>
+                        <select id="high-note-select">
+                            <option value="72">C5</option>
+                            <option value="84" selected>C6</option>
+                            <option value="96">C7</option>
+                            <option value="108">C8</option>
+                        </select>
+                    </div>
+
                     <!-- Glide -->
                     <div class="setting setting-wide">
                         <label for="glide-slider">
@@ -165,7 +187,46 @@
                             </span>
                         </label>
                     </div>
+
+                    <!-- Finger mode toggle -->
+                    <div class="setting">
+                        <label for="finger-toggle">Finger Mode</label>
+                        <label class="toggle">
+                            <input type="checkbox" id="finger-toggle">
+                            <span class="toggle-track">
+                                <span class="toggle-label-off">Off</span>
+                                <span class="toggle-label-on">On</span>
+                            </span>
+                        </label>
+                    </div>
                 </div>
+
+                <!-- Wave table drawing -->
+                <div class="wavetable-container" id="wavetable-container">
+                    <h3 class="wavetable-title">Draw Custom Wave</h3>
+                    <canvas id="wavetable-canvas" width="300" height="150"></canvas>
+                    <div style="margin-top: 8px; display: flex; gap: 8px;">
+                        <button id="wavetable-clear" class="wt-button">Clear</button>
+                        <button id="wavetable-apply" class="wt-button wt-button-primary">Apply to Clean Mode</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recording card -->
+            <div class="card recording-card">
+                <h2 class="card-title">Record</h2>
+                <div class="recording-controls">
+                    <button id="record-start" class="record-button">
+                        <span class="record-icon">⏺</span>
+                        Start Recording
+                    </button>
+                    <button id="record-stop" class="record-button hidden" disabled>
+                        <span class="record-icon">⏹</span>
+                        Stop Recording
+                    </button>
+                    <div id="recording-timer" class="recording-timer hidden">00:00</div>
+                </div>
+                <div id="recording-status" class="recording-status"></div>
             </div>
 
             <!-- How to play -->

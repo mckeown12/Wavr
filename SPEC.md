@@ -1,4 +1,4 @@
-# Visual Thermin — Specification
+# Visual Theremin — Specification
 
 ## Overview
 A web-based visual theremin (frequency modulator) controlled by hand gestures detected through a webcam. The application uses computer vision to track hand position and gestures, mapping them to audio synthesis parameters in real time.
@@ -99,7 +99,7 @@ All modes share:
 ### Layout (Desktop / Pi Display)
 ```
 ┌─────────────────────────────────────────────────────┐
-│            🏄  VISUAL THERMIN  🏄                    │
+│            🏄  VISUAL THEREMIN  🏄                   │
 ├────────────────────────┬────────────────────────────┤
 │                        │  ┌──────────────────────┐  │
 │                        │  │ 🎵 FREQUENCY  148 Hz │  │
