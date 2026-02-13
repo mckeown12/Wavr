@@ -35,7 +35,7 @@ No backend. No build step. No bundler. No npm. Just open `index.html` in a brows
 
 ```bash
 # Clone
-git clone https://github.com/MarioCruz/Wavr.git
+git clone https://github.com/mckeown12/Wavr.git
 cd Wavr
 
 # Option 1: Open directly in browser
@@ -51,7 +51,7 @@ Open **http://localhost:5050** in your browser and allow camera access.
 
 ### GitHub Pages
 
-This app is hosted live at: **[https://mariocruz.github.io/Wavr](https://mariocruz.github.io/Wavr)**
+This app is hosted live at: **[https://mckeown12.github.io/Wavr](https://mckeown12.github.io/Wavr)**
 
 To deploy your own:
 1. Push to GitHub
@@ -64,7 +64,7 @@ To deploy your own:
 
 ```bash
 # Clone the repo
-git clone https://github.com/MarioCruz/Wavr.git
+git clone https://github.com/mckeown12/Wavr.git
 cd Wavr
 
 # Serve locally (optional, or just open index.html)
