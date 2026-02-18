@@ -29,6 +29,8 @@
     const recordingStatus = document.getElementById('recording-status');
     const hand0Row = document.getElementById('hand-0-row');
     const hand1Row = document.getElementById('hand-1-row');
+    const webcamContainer = document.getElementById('webcam-container');
+    const fullscreenBtn = document.getElementById('fullscreen-btn');
 
     // Per-hand display elements
     const handDisplays = [
@@ -111,6 +113,30 @@
         activeVoices.clear();
         resetHandDisplay(0);
         resetHandDisplay(1);
+    });
+
+    // --- Fullscreen functionality ---
+
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            webcamContainer.requestFullscreen().catch(err => {
+                console.error('Error attempting to enable fullscreen:', err);
+            });
+        } else {
+            document.exitFullscreen();
+        }
+    });
+
+    // Update button icon when fullscreen state changes
+    document.addEventListener('fullscreenchange', () => {
+        const icon = fullscreenBtn.querySelector('.fullscreen-icon');
+        if (document.fullscreenElement) {
+            icon.textContent = '⛶'; // Exit fullscreen icon
+            fullscreenBtn.title = 'Exit Fullscreen';
+        } else {
+            icon.textContent = '⛶'; // Enter fullscreen icon
+            fullscreenBtn.title = 'Toggle Fullscreen';
+        }
     });
 
     // Initialize with defaults

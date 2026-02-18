@@ -135,6 +135,44 @@ body {
     opacity: 0.7;
 }
 
+.fullscreen-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    backdrop-filter: blur(4px);
+    z-index: 10;
+}
+
+.fullscreen-btn:hover {
+    background: rgba(255, 107, 107, 0.8);
+    transform: scale(1.1);
+}
+
+.fullscreen-icon {
+    font-size: 1.3rem;
+    line-height: 1;
+}
+
+.webcam-container:fullscreen {
+    border-radius: 0;
+}
+
+.webcam-container:fullscreen .fullscreen-btn {
+    bottom: 20px;
+    right: 20px;
+}
+
 /* === Cards === */
 .card {
     background: var(--card-bg);

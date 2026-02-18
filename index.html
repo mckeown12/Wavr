@@ -21,13 +21,16 @@
     <main class="main">
         <!-- Webcam -->
         <section class="webcam-panel">
-            <div class="webcam-container">
+            <div class="webcam-container" id="webcam-container">
                 <video id="webcam" autoplay playsinline></video>
                 <canvas id="overlay"></canvas>
                 <div id="no-camera" class="no-camera">
                     <p>Camera access needed</p>
                     <p class="small">Allow camera permissions to play</p>
                 </div>
+                <button id="fullscreen-btn" class="fullscreen-btn" title="Toggle Fullscreen">
+                    <span class="fullscreen-icon">⛶</span>
+                </button>
             </div>
         </section>
 
