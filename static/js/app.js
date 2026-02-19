@@ -39,6 +39,7 @@
     const hand1Row = document.getElementById('hand-1-row');
     const webcamContainer = document.getElementById('webcam-container');
     const fullscreenBtn = document.getElementById('fullscreen-btn');
+    const panicBtn = document.getElementById('panic-btn');
 
     // Per-hand display elements
     const handDisplays = [
@@ -56,8 +57,12 @@
 
     // Track which voice IDs are currently active
     const activeVoices = new Set();
+    const voicePrevY = new Map(); // voiceId -> previous Y position (0-1, 0=bottom, 1=top)
     let multiHandEnabled = false;
     let fingerModeEnabled = false;
+
+    // Attack threshold (Y position where crossing triggers notes)
+    const ATTACK_THRESHOLD = 0.5; // Middle of screen
 
     // --- Settings event listeners ---
 
@@ -135,6 +140,7 @@
             AudioEngine.stopVoice(1);
             activeVoices.delete(1);
             activeNoteVisuals.delete(1);
+            voicePrevY.delete(1);
             resetHandDisplay(1);
         }
     });
@@ -145,8 +151,35 @@
         AudioEngine.stopAll();
         activeVoices.clear();
         activeNoteVisuals.clear();
+        voicePrevY.clear();
         resetHandDisplay(0);
         resetHandDisplay(1);
+    });
+
+    // --- Panic button (stop all notes) ---
+
+    function triggerPanic() {
+        AudioEngine.stopAll();
+        activeVoices.clear();
+        activeNoteVisuals.clear();
+        voicePrevY.clear();
+        resetHandDisplay(0);
+        resetHandDisplay(1);
+        // Visual feedback
+        panicBtn.textContent = '✓ All Stopped';
+        setTimeout(() => {
+            panicBtn.textContent = 'Stop All Notes [Space]';
+        }, 1000);
+    }
+
+    panicBtn.addEventListener('click', triggerPanic);
+
+    // Keyboard shortcut: Spacebar = panic
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !e.repeat) {
+            e.preventDefault();
+            triggerPanic();
+        }
     });
 
     // --- Fullscreen functionality ---
@@ -279,6 +312,36 @@
     }
 
     /**
+     * Draw the threshold line where crossing triggers notes.
+     */
+    function drawThresholdLine() {
+        const width = canvasEl.width;
+        const height = canvasEl.height;
+        const ctx = canvasEl.getContext('2d');
+        const thresholdY = height * (1 - ATTACK_THRESHOLD);
+
+        ctx.save();
+
+        // Draw dashed horizontal line
+        ctx.strokeStyle = 'rgba(255, 107, 107, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([15, 8]);
+        ctx.beginPath();
+        ctx.moveTo(0, thresholdY);
+        ctx.lineTo(width, thresholdY);
+        ctx.stroke();
+
+        // Draw label with arrow
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(255, 107, 107, 0.8)';
+        ctx.font = 'bold 13px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('↓ Cross to play', 10, thresholdY - 8);
+
+        ctx.restore();
+    }
+
+    /**
      * Draw active note attack indicators from above.
      */
     function drawNoteAttacks() {
@@ -315,15 +378,16 @@
                 envPhase = 'sustain';
             }
 
-            // Draw indicator dropping from top
-            // Y position: starts at 0 (top) and drops down during attack, then stays
-            const maxDrop = height * 0.3; // Max 30% of screen height
-            let y = 0;
+            // Draw indicator dropping from threshold line
+            // Y position starts at threshold and drops down during attack
+            const thresholdY = height * (1 - ATTACK_THRESHOLD); // Convert to canvas coords (0=top)
+            const maxDrop = height * 0.25; // Drop 25% of screen below threshold
+            let y = thresholdY;
 
             if (envPhase === 'attack') {
-                y = maxDrop * envValue;
+                y = thresholdY + (maxDrop * envValue);
             } else {
-                y = maxDrop;
+                y = thresholdY + maxDrop;
             }
 
             // Indicator size based on envelope value
@@ -363,6 +427,9 @@
         // Draw note lines first (so they appear behind hands)
         drawNoteLines();
 
+        // Draw threshold line
+        drawThresholdLine();
+
         // Draw note attack indicators
         drawNoteAttacks();
 
@@ -390,42 +457,61 @@
             const yPos = 1 - hand.y; // Y position (0 = bottom, 1 = top)
             const openness = hand.openness;
 
-            // Check if this is a new voice (trigger attack visual)
-            const isNewVoice = !activeVoices.has(id);
+            const prevY = voicePrevY.get(id);
+            const wasBelowThreshold = activeVoices.has(id);
+            const isBelowThreshold = yPos <= ATTACK_THRESHOLD;
 
-            // Volume is now controlled entirely by ADSR envelope
-            // Fixed at 0.7 for good sustain level
-            const volNorm = 0.7;
+            // Detect crossing from above threshold to below (attack trigger)
+            const didCross = prevY !== undefined && prevY > ATTACK_THRESHOLD && isBelowThreshold;
 
-            // Update audio voice — returns quantized frequency
-            const freq = AudioEngine.updateVoice(id, freqNorm, volNorm, openness);
+            // Update position tracking
+            voicePrevY.set(id, yPos);
 
-            // If new voice, add attack visual
-            if (isNewVoice) {
-                const range = AudioEngine.getFreqRange();
-                const freqSpan = Math.log(range.max / range.min);
-                const freqNormLog = (Math.log(freq / range.min) / freqSpan);
-                const x = canvasEl.width * (1 - freqNormLog);
-                activeNoteVisuals.set(id, {
-                    x: x,
-                    startTime: performance.now() / 1000,
-                    freq: freq
-                });
-            } else {
-                // Update x position for existing visual
-                const visual = activeNoteVisuals.get(id);
-                if (visual) {
+            if (isBelowThreshold) {
+                // Hand is below threshold - play or continue note
+                const volNorm = 0.7;
+
+                // Check if this is a new attack (first time below threshold or crossing)
+                const isNewAttack = !wasBelowThreshold || didCross;
+
+                // Update audio voice (retrigger ADSR on crossing)
+                const freq = AudioEngine.updateVoice(id, freqNorm, volNorm, openness, didCross);
+
+                // If new attack, trigger visual
+                if (isNewAttack) {
                     const range = AudioEngine.getFreqRange();
                     const freqSpan = Math.log(range.max / range.min);
                     const freqNormLog = (Math.log(freq / range.min) / freqSpan);
-                    visual.x = canvasEl.width * (1 - freqNormLog);
-                    visual.freq = freq;
+                    const x = canvasEl.width * (1 - freqNormLog);
+                    activeNoteVisuals.set(id, {
+                        x: x,
+                        startTime: performance.now() / 1000,
+                        freq: freq
+                    });
+                } else {
+                    // Update x position for existing visual
+                    const visual = activeNoteVisuals.get(id);
+                    if (visual) {
+                        const range = AudioEngine.getFreqRange();
+                        const freqSpan = Math.log(range.max / range.min);
+                        const freqNormLog = (Math.log(freq / range.min) / freqSpan);
+                        visual.x = canvasEl.width * (1 - freqNormLog);
+                        visual.freq = freq;
+                    }
+                }
+
+                // Update display
+                updateHandDisplay(id, freq, volNorm, openness);
+                activeVoices.add(id);
+            } else {
+                // Hand is above threshold - stop note if it was playing
+                if (wasBelowThreshold) {
+                    AudioEngine.stopVoice(id);
+                    activeVoices.delete(id);
+                    activeNoteVisuals.delete(id);
+                    resetHandDisplay(id);
                 }
             }
-
-            // Update display
-            updateHandDisplay(id, freq, volNorm, openness);
-            activeVoices.add(id);
         }
 
         // Stop voices for hands that disappeared
@@ -434,19 +520,27 @@
                 AudioEngine.stopVoice(id);
                 activeVoices.delete(id);
                 activeNoteVisuals.delete(id);
+                voicePrevY.delete(id);
                 resetHandDisplay(id);
             }
         }
 
+        // Clean up position tracking for hands that disappeared entirely
+        for (const id of voicePrevY.keys()) {
+            if (!currentIds.has(id)) {
+                voicePrevY.delete(id);
+            }
+        }
+
         // Update status
-        if (currentIds.size > 0) {
+        if (activeVoices.size > 0) {
             statusEl.classList.add('active');
             const statusText = statusEl.childNodes[statusEl.childNodes.length - 1];
-            statusText.textContent = currentIds.size > 1 ? ' Playing (2 hands)' : ' Playing';
+            statusText.textContent = activeVoices.size > 1 ? ' Playing (2 hands)' : ' Playing';
         } else {
             statusEl.classList.remove('active');
             const statusText = statusEl.childNodes[statusEl.childNodes.length - 1];
-            statusText.textContent = ' Show hand to play';
+            statusText.textContent = ' Cross the line to play';
         }
     }
 
@@ -470,14 +564,23 @@
                 const freqNorm = 1 - finger.x;
                 const yPos = 1 - finger.y;
 
-                // Simple threshold: only play if finger is in upper half
-                if (yPos > 0.3) {
-                    const isNewVoice = !activeVoices.has(voiceId);
-                    // Fixed volume - ADSR controls envelope
-                    const freq = AudioEngine.updateVoice(voiceId, freqNorm, 0.6, 0.5);
+                const prevY = voicePrevY.get(voiceId);
+                const wasBelowThreshold = activeVoices.has(voiceId);
+                const isBelowThreshold = yPos <= ATTACK_THRESHOLD;
 
-                    // If new voice, add attack visual
-                    if (isNewVoice) {
+                // Detect crossing from above threshold to below (attack trigger)
+                const didCross = prevY !== undefined && prevY > ATTACK_THRESHOLD && isBelowThreshold;
+
+                // Update position tracking
+                voicePrevY.set(voiceId, yPos);
+
+                if (isBelowThreshold) {
+                    // Finger is below threshold - play or continue note
+                    const isNewAttack = !wasBelowThreshold || didCross;
+                    const freq = AudioEngine.updateVoice(voiceId, freqNorm, 0.6, 0.5, didCross);
+
+                    // If new attack, trigger visual
+                    if (isNewAttack) {
                         const range = AudioEngine.getFreqRange();
                         const freqSpan = Math.log(range.max / range.min);
                         const freqNormLog = (Math.log(freq / range.min) / freqSpan);
@@ -500,16 +603,31 @@
                     }
 
                     activeVoices.add(voiceId);
+                } else {
+                    // Finger is above threshold - stop note if it was playing
+                    if (wasBelowThreshold) {
+                        AudioEngine.stopVoice(voiceId);
+                        activeVoices.delete(voiceId);
+                        activeNoteVisuals.delete(voiceId);
+                    }
                 }
             }
         }
 
-        // Stop voices for fingers that disappeared or moved down
+        // Stop voices for fingers that disappeared
         for (const id of activeVoices) {
             if (!currentIds.has(id)) {
                 AudioEngine.stopVoice(id);
                 activeVoices.delete(id);
                 activeNoteVisuals.delete(id);
+                voicePrevY.delete(id);
+            }
+        }
+
+        // Clean up position tracking for fingers that disappeared
+        for (const id of voicePrevY.keys()) {
+            if (!currentIds.has(id)) {
+                voicePrevY.delete(id);
             }
         }
 

@@ -366,11 +366,17 @@ const AudioEngine = (() => {
     /**
      * Update a voice's parameters.
      * Creates the voice if it doesn't exist yet.
+     * @param {boolean} retrigger - If true, retrigger the ADSR envelope
      */
-    function updateVoice(id, freqNorm, volNorm, openness) {
+    function updateVoice(id, freqNorm, volNorm, openness, retrigger = false) {
         let voice = voices[id];
         if (!voice) {
             voice = createVoice(id);
+        }
+
+        // Retrigger ADSR envelope if requested
+        if (retrigger && voice.triggered) {
+            voice.triggered = false;
         }
 
         const now = ctx.currentTime;
@@ -464,10 +470,17 @@ const AudioEngine = (() => {
             // Decay: peak to sustain
             voice.gain.gain.linearRampToValueAtTime(vol, now + attackTime + decayTime);
         } else {
-            // Already playing, just adjust sustain level smoothly
-            voice.gain.gain.cancelScheduledValues(now);
-            voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-            voice.gain.gain.linearRampToValueAtTime(vol, now + 0.05);
+            // Check if we're still in attack/decay phase
+            const elapsed = now - voice.lastTriggerTime;
+            const attackDecayTime = attackTime + decayTime;
+
+            if (elapsed >= attackDecayTime) {
+                // We're in sustain phase, can adjust level smoothly
+                voice.gain.gain.cancelScheduledValues(now);
+                voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+                voice.gain.gain.linearRampToValueAtTime(vol, now + 0.05);
+            }
+            // Otherwise, let the scheduled attack/decay finish
         }
 
         // Filter

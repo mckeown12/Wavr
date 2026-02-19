@@ -580,6 +580,33 @@ input[type="range"]::-moz-range-thumb {
     border-color: #ff5555;
 }
 
+/* === Panic Button === */
+.panic-button {
+    width: 100%;
+    padding: 10px 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border: 2px solid var(--coral);
+    border-radius: 8px;
+    background: white;
+    color: var(--coral);
+    transition: all 0.2s;
+}
+
+.panic-button:hover {
+    background: var(--coral);
+    color: white;
+    transform: scale(1.02);
+}
+
+.panic-button:active {
+    transform: scale(0.98);
+}
+
 /* === Recording === */
 .recording-controls {
     display: flex;
