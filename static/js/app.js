@@ -13,6 +13,14 @@
     const rootSelect = document.getElementById('root-select');
     const glideSlider = document.getElementById('glide-slider');
     const glideLabel = document.getElementById('glide-label');
+    const attackSlider = document.getElementById('attack-slider');
+    const attackLabel = document.getElementById('attack-label');
+    const decaySlider = document.getElementById('decay-slider');
+    const decayLabel = document.getElementById('decay-label');
+    const sustainSlider = document.getElementById('sustain-slider');
+    const sustainLabel = document.getElementById('sustain-label');
+    const releaseSlider = document.getElementById('release-slider');
+    const releaseLabel = document.getElementById('release-label');
     const waveformSelect = document.getElementById('waveform-select');
     const waveformSetting = document.getElementById('waveform-setting');
     const multihandToggle = document.getElementById('multihand-toggle');
@@ -93,6 +101,30 @@
         }
     });
 
+    attackSlider.addEventListener('input', (e) => {
+        const ms = parseInt(e.target.value, 10);
+        AudioEngine.setAttack(ms / 1000);
+        attackLabel.textContent = ms + 'ms';
+    });
+
+    decaySlider.addEventListener('input', (e) => {
+        const ms = parseInt(e.target.value, 10);
+        AudioEngine.setDecay(ms / 1000);
+        decayLabel.textContent = ms + 'ms';
+    });
+
+    sustainSlider.addEventListener('input', (e) => {
+        const percent = parseInt(e.target.value, 10);
+        AudioEngine.setSustain(percent / 100);
+        sustainLabel.textContent = percent + '%';
+    });
+
+    releaseSlider.addEventListener('input', (e) => {
+        const ms = parseInt(e.target.value, 10);
+        AudioEngine.setRelease(ms / 1000);
+        releaseLabel.textContent = ms + 'ms';
+    });
+
     multihandToggle.addEventListener('change', (e) => {
         multiHandEnabled = e.target.checked;
         hand1Row.classList.toggle('hidden', !multiHandEnabled);
@@ -102,6 +134,7 @@
         if (!multiHandEnabled) {
             AudioEngine.stopVoice(1);
             activeVoices.delete(1);
+            activeNoteVisuals.delete(1);
             resetHandDisplay(1);
         }
     });
@@ -111,6 +144,7 @@
         // Stop all voices when switching modes
         AudioEngine.stopAll();
         activeVoices.clear();
+        activeNoteVisuals.clear();
         resetHandDisplay(0);
         resetHandDisplay(1);
     });
@@ -145,6 +179,9 @@
 
     // Current note lines cache
     let noteLines = [];
+
+    // Active note visuals for "attack from above" animation
+    const activeNoteVisuals = new Map(); // voiceId -> { x, startTime, freq }
 
     /**
      * Update the frequency range based on low/high note selectors.
@@ -197,7 +234,7 @@
         if (!d) return;
         const noteName = AudioEngine.getNoteName(freq);
         d.freq.textContent = noteName + ' ' + freq.toFixed(0) + 'Hz';
-        d.vol.textContent = Math.round(vol * 100) + '%';
+        d.vol.textContent = 'ADSR';
         d.filter.textContent = openness > 0.5 ? 'Open' : 'Closed';
     }
 
@@ -242,6 +279,82 @@
     }
 
     /**
+     * Draw active note attack indicators from above.
+     */
+    function drawNoteAttacks() {
+        if (activeNoteVisuals.size === 0) return;
+
+        const width = canvasEl.width;
+        const height = canvasEl.height;
+        const ctx = canvasEl.getContext('2d');
+        const now = performance.now() / 1000; // current time in seconds
+        const adsr = AudioEngine.getADSR();
+
+        ctx.save();
+
+        for (const [voiceId, visual] of activeNoteVisuals.entries()) {
+            const elapsed = now - visual.startTime;
+            const x = visual.x;
+
+            // Calculate ADSR envelope position (0-1)
+            let envValue = 0;
+            let envPhase = 'attack';
+
+            if (elapsed < adsr.attack) {
+                // Attack phase: 0 -> 1
+                envValue = elapsed / adsr.attack;
+                envPhase = 'attack';
+            } else if (elapsed < adsr.attack + adsr.decay) {
+                // Decay phase: 1 -> sustain
+                const decayProgress = (elapsed - adsr.attack) / adsr.decay;
+                envValue = 1 - (1 - adsr.sustain) * decayProgress;
+                envPhase = 'decay';
+            } else {
+                // Sustain phase
+                envValue = adsr.sustain;
+                envPhase = 'sustain';
+            }
+
+            // Draw indicator dropping from top
+            // Y position: starts at 0 (top) and drops down during attack, then stays
+            const maxDrop = height * 0.3; // Max 30% of screen height
+            let y = 0;
+
+            if (envPhase === 'attack') {
+                y = maxDrop * envValue;
+            } else {
+                y = maxDrop;
+            }
+
+            // Indicator size based on envelope value
+            const radius = 10 + envValue * 20;
+            const alpha = 0.4 + envValue * 0.4;
+
+            // Draw glow
+            ctx.fillStyle = `rgba(255, 107, 107, ${alpha * 0.3})`;
+            ctx.beginPath();
+            ctx.arc(x, y, radius * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw main circle
+            ctx.fillStyle = `rgba(255, 107, 107, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw vertical line from indicator to bottom
+            ctx.strokeStyle = `rgba(255, 107, 107, ${alpha * 0.3})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    /**
      * Handle hand tracking data (array of hands).
      */
     function onHandData(handsData) {
@@ -249,6 +362,9 @@
 
         // Draw note lines first (so they appear behind hands)
         drawNoteLines();
+
+        // Draw note attack indicators
+        drawNoteAttacks();
 
         if (fingerModeEnabled) {
             handleFingerMode(handsData);
@@ -271,11 +387,41 @@
 
             // Map hand position to synth parameters (mirrored camera)
             const freqNorm = 1 - hand.x;
-            const volNorm = 1 - hand.y;
+            const yPos = 1 - hand.y; // Y position (0 = bottom, 1 = top)
             const openness = hand.openness;
+
+            // Check if this is a new voice (trigger attack visual)
+            const isNewVoice = !activeVoices.has(id);
+
+            // Volume is now controlled entirely by ADSR envelope
+            // Fixed at 0.7 for good sustain level
+            const volNorm = 0.7;
 
             // Update audio voice — returns quantized frequency
             const freq = AudioEngine.updateVoice(id, freqNorm, volNorm, openness);
+
+            // If new voice, add attack visual
+            if (isNewVoice) {
+                const range = AudioEngine.getFreqRange();
+                const freqSpan = Math.log(range.max / range.min);
+                const freqNormLog = (Math.log(freq / range.min) / freqSpan);
+                const x = canvasEl.width * (1 - freqNormLog);
+                activeNoteVisuals.set(id, {
+                    x: x,
+                    startTime: performance.now() / 1000,
+                    freq: freq
+                });
+            } else {
+                // Update x position for existing visual
+                const visual = activeNoteVisuals.get(id);
+                if (visual) {
+                    const range = AudioEngine.getFreqRange();
+                    const freqSpan = Math.log(range.max / range.min);
+                    const freqNormLog = (Math.log(freq / range.min) / freqSpan);
+                    visual.x = canvasEl.width * (1 - freqNormLog);
+                    visual.freq = freq;
+                }
+            }
 
             // Update display
             updateHandDisplay(id, freq, volNorm, openness);
@@ -287,6 +433,7 @@
             if (!currentIds.has(id)) {
                 AudioEngine.stopVoice(id);
                 activeVoices.delete(id);
+                activeNoteVisuals.delete(id);
                 resetHandDisplay(id);
             }
         }
@@ -321,11 +468,37 @@
 
                 // Map finger position to synth parameters (mirrored camera)
                 const freqNorm = 1 - finger.x;
-                const volNorm = 1 - finger.y;
+                const yPos = 1 - finger.y;
 
                 // Simple threshold: only play if finger is in upper half
-                if (volNorm > 0.3) {
-                    const freq = AudioEngine.updateVoice(voiceId, freqNorm, volNorm * 0.6, 0.5);
+                if (yPos > 0.3) {
+                    const isNewVoice = !activeVoices.has(voiceId);
+                    // Fixed volume - ADSR controls envelope
+                    const freq = AudioEngine.updateVoice(voiceId, freqNorm, 0.6, 0.5);
+
+                    // If new voice, add attack visual
+                    if (isNewVoice) {
+                        const range = AudioEngine.getFreqRange();
+                        const freqSpan = Math.log(range.max / range.min);
+                        const freqNormLog = (Math.log(freq / range.min) / freqSpan);
+                        const x = canvasEl.width * (1 - freqNormLog);
+                        activeNoteVisuals.set(voiceId, {
+                            x: x,
+                            startTime: performance.now() / 1000,
+                            freq: freq
+                        });
+                    } else {
+                        // Update x position for existing visual
+                        const visual = activeNoteVisuals.get(voiceId);
+                        if (visual) {
+                            const range = AudioEngine.getFreqRange();
+                            const freqSpan = Math.log(range.max / range.min);
+                            const freqNormLog = (Math.log(freq / range.min) / freqSpan);
+                            visual.x = canvasEl.width * (1 - freqNormLog);
+                            visual.freq = freq;
+                        }
+                    }
+
                     activeVoices.add(voiceId);
                 }
             }
@@ -336,6 +509,7 @@
             if (!currentIds.has(id)) {
                 AudioEngine.stopVoice(id);
                 activeVoices.delete(id);
+                activeNoteVisuals.delete(id);
             }
         }
 

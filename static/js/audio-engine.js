@@ -14,6 +14,12 @@ const AudioEngine = (() => {
     let rootNote = 48; // C3 MIDI note
     let glideTime = 0.08; // seconds — 0 = snap, higher = glide
 
+    // ADSR envelope parameters (in seconds)
+    let attackTime = 0.01;   // Attack: 0 to peak
+    let decayTime = 0.1;     // Decay: peak to sustain level
+    let sustainLevel = 0.7;  // Sustain: held level (0-1)
+    let releaseTime = 0.3;   // Release: sustain to 0
+
     // Frequency range (configurable)
     let FREQ_MIN = 65;    // C2 (MIDI 36)
     let FREQ_MAX = 1047;  // C6 (MIDI 84)
@@ -134,6 +140,8 @@ const AudioEngine = (() => {
             filter: ctx.createBiquadFilter(),
             nodes: {},  // mode-specific oscillator nodes
             playing: false,
+            triggered: false, // tracks if ADSR envelope has been triggered
+            lastTriggerTime: 0, // when the note was last triggered
         };
 
         voice.gain.gain.value = 0;
@@ -341,9 +349,10 @@ const AudioEngine = (() => {
         if (!voice) return;
 
         const now = ctx.currentTime;
+        // Release: current volume to 0
         voice.gain.gain.cancelScheduledValues(now);
         voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-        voice.gain.gain.linearRampToValueAtTime(0, now + 0.05);
+        voice.gain.gain.linearRampToValueAtTime(0, now + releaseTime);
 
         setTimeout(() => {
             teardownModeNodes(voice);
@@ -351,7 +360,7 @@ const AudioEngine = (() => {
             try { voice.gain.disconnect(); } catch(e) {}
             voice.playing = false;
             delete voices[id];
-        }, 80);
+        }, releaseTime * 1000 + 50);
     }
 
     /**
@@ -440,10 +449,26 @@ const AudioEngine = (() => {
             o.frequency.linearRampToValueAtTime(freq, now + ramp);
         }
 
-        // Volume
-        voice.gain.gain.cancelScheduledValues(now);
-        voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-        voice.gain.gain.linearRampToValueAtTime(vol, now + 0.05);
+        // Volume with ADSR envelope
+        // If this is a new trigger (voice just created or retriggered), apply attack
+        if (!voice.triggered) {
+            voice.triggered = true;
+            voice.lastTriggerTime = now;
+
+            const peakVol = vol / sustainLevel; // Scale up so sustain = vol
+
+            voice.gain.gain.cancelScheduledValues(now);
+            voice.gain.gain.setValueAtTime(0, now);
+            // Attack: 0 to peak
+            voice.gain.gain.linearRampToValueAtTime(peakVol, now + attackTime);
+            // Decay: peak to sustain
+            voice.gain.gain.linearRampToValueAtTime(vol, now + attackTime + decayTime);
+        } else {
+            // Already playing, just adjust sustain level smoothly
+            voice.gain.gain.cancelScheduledValues(now);
+            voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+            voice.gain.gain.linearRampToValueAtTime(vol, now + 0.05);
+        }
 
         // Filter
         voice.filter.frequency.cancelScheduledValues(now);
@@ -611,6 +636,29 @@ const AudioEngine = (() => {
         return notes;
     }
 
+    /**
+     * Set ADSR envelope parameters.
+     */
+    function setAttack(time) {
+        attackTime = Math.max(0.001, time); // Min 1ms
+    }
+
+    function setDecay(time) {
+        decayTime = Math.max(0.001, time);
+    }
+
+    function setSustain(level) {
+        sustainLevel = Math.max(0.001, Math.min(1, level)); // Clamp 0.001-1
+    }
+
+    function setRelease(time) {
+        releaseTime = Math.max(0.001, time);
+    }
+
+    function getADSR() {
+        return { attack: attackTime, decay: decayTime, sustain: sustainLevel, release: releaseTime };
+    }
+
     return {
         updateVoice, stopVoice, stopAll,
         setMode, setScale, setRootNote, setGlideTime, setWaveform, setCustomWave,
@@ -618,5 +666,6 @@ const AudioEngine = (() => {
         getScales, getFrequency, getNoteName,
         midiToFreq, freqToMidi,
         getAudioStream,
+        setAttack, setDecay, setSustain, setRelease, getADSR,
     };
 })();
