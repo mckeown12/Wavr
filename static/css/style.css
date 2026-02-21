@@ -997,6 +997,73 @@ input[type="range"]::-moz-range-thumb {
     border-top: 1px solid #f0e8d8;
 }
 
+/* ── FX Card ────────────────────────────────────────────────────── */
+.dm-fx-card {
+    padding: 1rem 1.5rem;
+}
+
+.dm-fx-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+}
+
+.dm-fx-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0 1.25rem;
+}
+
+.dm-fx-section:first-child { padding-left: 0; }
+.dm-fx-section:last-child  { padding-right: 0; }
+
+.dm-fx-sep {
+    width: 1px;
+    align-self: stretch;
+    background: #f0e8d8;
+    flex-shrink: 0;
+}
+
+.dm-fx-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    cursor: pointer;
+}
+
+.dm-fx-toggle-label input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--turquoise);
+    cursor: pointer;
+}
+
+.dm-fx-name {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--navy);
+}
+
+.dm-fx-params {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.dm-fx-param {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.dm-fx-param .dm-label {
+    font-size: 0.6rem;
+}
+
 /* ── Sequencer ──────────────────────────────────────────────────── */
 .dm-sequencer-card {
     overflow-x: auto;

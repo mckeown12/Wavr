@@ -385,6 +385,72 @@
             </div>
         </div>
 
+        <!-- Effects -->
+        <div class="card dm-fx-card">
+            <div class="dm-fx-row">
+
+                <!-- Compressor -->
+                <div class="dm-fx-section">
+                    <label class="dm-fx-toggle-label">
+                        <input type="checkbox" id="dm-comp-enable" checked>
+                        <span class="dm-fx-name">Compressor</span>
+                    </label>
+                    <div class="dm-fx-params">
+                        <div class="dm-fx-param">
+                            <label class="dm-label">Threshold <span id="dm-comp-thresh-val">-24</span> dB</label>
+                            <input type="range" id="dm-comp-threshold" min="-60" max="0" value="-24">
+                        </div>
+                        <div class="dm-fx-param">
+                            <label class="dm-label">Ratio <span id="dm-comp-ratio-val">4</span>:1</label>
+                            <input type="range" id="dm-comp-ratio" min="1" max="20" value="4">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dm-fx-sep"></div>
+
+                <!-- Reverb -->
+                <div class="dm-fx-section">
+                    <label class="dm-fx-toggle-label">
+                        <input type="checkbox" id="dm-reverb-enable">
+                        <span class="dm-fx-name">Reverb</span>
+                    </label>
+                    <div class="dm-fx-params">
+                        <div class="dm-fx-param">
+                            <label class="dm-label">Wet <span id="dm-reverb-wet-val">20</span>%</label>
+                            <input type="range" id="dm-reverb-wet" min="0" max="100" value="20">
+                        </div>
+                        <div class="dm-fx-param">
+                            <label class="dm-label">Room</label>
+                            <select id="dm-reverb-size" class="dm-select">
+                                <option value="small">Small</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="large">Large</option>
+                                <option value="hall">Hall</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dm-fx-sep"></div>
+
+                <!-- Limiter -->
+                <div class="dm-fx-section">
+                    <label class="dm-fx-toggle-label">
+                        <input type="checkbox" id="dm-limiter-enable" checked>
+                        <span class="dm-fx-name">Limiter</span>
+                    </label>
+                    <div class="dm-fx-params">
+                        <div class="dm-fx-param">
+                            <label class="dm-label">Ceiling <span id="dm-limiter-ceil-val">-0.5</span> dB</label>
+                            <input type="range" id="dm-limiter-threshold" min="-12" max="-0.5" step="0.5" value="-0.5">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
         <!-- Step Sequencer -->
         <div class="card dm-sequencer-card">
             <div class="dm-seq-top-row">

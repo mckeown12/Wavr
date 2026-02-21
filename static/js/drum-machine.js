@@ -59,19 +59,96 @@ const DrumMachine = (function () {
     }
 
     // ══════════════════════════════════════════════════════════════════
-    // Audio Context
+    // Audio Context + FX Chain
     // ══════════════════════════════════════════════════════════════════
 
     let ctx = null;
     let masterGain = null;
+    let fxComp = null;
+    let fxReverb = null; let fxReverbWet = null; let fxReverbDry = null;
+    let fxLimiter = null;
     let samplesInitiated = false;
+
+    // FX state — persisted to localStorage
+    const fx = {
+        comp:    { enabled: true,  threshold: -24, ratio: 4 },
+        reverb:  { enabled: false, wet: 20,  size: 'medium' },
+        limiter: { enabled: true,  threshold: -0.5 },
+    };
+
+    const REVERB_SIZES = {
+        small:  { duration: 0.6, decay: 4.0 },
+        medium: { duration: 1.5, decay: 2.5 },
+        large:  { duration: 3.0, decay: 2.0 },
+        hall:   { duration: 5.0, decay: 1.5 },
+    };
+
+    function buildReverbIR(size) {
+        const { duration, decay } = REVERB_SIZES[size] || REVERB_SIZES.medium;
+        const length = Math.floor(ctx.sampleRate * duration);
+        const ir = ctx.createBuffer(2, length, ctx.sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+            const d = ir.getChannelData(ch);
+            for (let i = 0; i < length; i++) {
+                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+            }
+        }
+        return ir;
+    }
+
+    function applyFX() {
+        if (!fxComp) return;
+        // Compressor (ratio=1 ≈ bypass; threshold=0 with ratio=1 = no compression)
+        fxComp.threshold.value = fx.comp.enabled ? fx.comp.threshold : 0;
+        fxComp.ratio.value     = fx.comp.enabled ? fx.comp.ratio : 1;
+        // Reverb wet/dry mix
+        const wet = fx.reverb.enabled ? (fx.reverb.wet / 100) : 0;
+        fxReverbWet.gain.value = wet;
+        fxReverbDry.gain.value = 1 - wet * 0.5; // slight dry boost when wet is high
+        // Limiter (ratio=1 = bypass)
+        fxLimiter.threshold.value = fx.limiter.enabled ? fx.limiter.threshold : 0;
+        fxLimiter.ratio.value     = fx.limiter.enabled ? 20 : 1;
+    }
 
     function initAudio() {
         if (ctx) return;
         ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // Instrument voices connect to masterGain
         masterGain = ctx.createGain();
         masterGain.gain.value = 0.8;
-        masterGain.connect(ctx.destination);
+
+        // Compressor (threshold/ratio/knee fixed defaults; threshold+ratio controlled by UI)
+        fxComp = ctx.createDynamicsCompressor();
+        fxComp.knee.value    = 3;
+        fxComp.attack.value  = 0.003;
+        fxComp.release.value = 0.25;
+
+        // Reverb — synthetic exponential-noise impulse response (no IR files needed)
+        fxReverb    = ctx.createConvolver();
+        fxReverbWet = ctx.createGain();
+        fxReverbDry = ctx.createGain();
+        fxReverb.buffer = buildReverbIR(fx.reverb.size);
+
+        // Limiter — DynamicsCompressor with near-infinite ratio, fast attack, zero knee
+        fxLimiter = ctx.createDynamicsCompressor();
+        fxLimiter.knee.value    = 0;
+        fxLimiter.attack.value  = 0.001;
+        fxLimiter.release.value = 0.1;
+
+        // Apply current FX settings to node parameters
+        applyFX();
+
+        // Signal path:  masterGain → compressor → ┬─ dry ──────────┬─ limiter → output
+        //                                          └─ reverb → wet ─┘
+        masterGain.connect(fxComp);
+        fxComp.connect(fxReverbDry);
+        fxComp.connect(fxReverb);
+        fxReverb.connect(fxReverbWet);
+        fxReverbDry.connect(fxLimiter);
+        fxReverbWet.connect(fxLimiter);
+        fxLimiter.connect(ctx.destination);
+
         if (!samplesInitiated) { samplesInitiated = true; loadSamples(); }
     }
 
@@ -221,6 +298,7 @@ const DrumMachine = (function () {
             const data = {
                 bpm, stepsCount, swingAmount: Math.round(swingAmount * 100),
                 currentKit, patternCounter, currentPatternId, timelineSlots,
+                fx: { comp: {...fx.comp}, reverb: {...fx.reverb}, limiter: {...fx.limiter} },
                 patterns: {},
             };
             Object.entries(patterns).forEach(([id, pat]) => {
@@ -245,6 +323,11 @@ const DrumMachine = (function () {
             swingAmount = (data.swingAmount || 0) / 100;
             currentKit  = KITS[data.currentKit] ? data.currentKit : 'acoustic';
             patternCounter = data.patternCounter || 0;
+            if (data.fx) {
+                if (data.fx.comp)    Object.assign(fx.comp,    data.fx.comp);
+                if (data.fx.reverb)  Object.assign(fx.reverb,  data.fx.reverb);
+                if (data.fx.limiter) Object.assign(fx.limiter, data.fx.limiter);
+            }
             Object.entries(data.patterns || {}).forEach(([id, pat]) => {
                 patterns[id] = { id: pat.id, name: pat.name, steps: {}, vel: {}, prob: {} };
                 INSTRUMENTS.forEach(instr => {
@@ -830,6 +913,18 @@ const DrumMachine = (function () {
         if (swingSlider)  swingSlider.value = Math.round(swingAmount * 100);
         if (swingDisplay) swingDisplay.textContent = Math.round(swingAmount * 100) + '%';
         if (kitSelect)    kitSelect.value   = currentKit;
+        // FX controls
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+        const setCheck = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+        setCheck('dm-comp-enable',    fx.comp.enabled);
+        set('dm-comp-threshold',      fx.comp.threshold);    setText('dm-comp-thresh-val',  fx.comp.threshold);
+        set('dm-comp-ratio',          fx.comp.ratio);        setText('dm-comp-ratio-val',   fx.comp.ratio);
+        setCheck('dm-reverb-enable',  fx.reverb.enabled);
+        set('dm-reverb-wet',          fx.reverb.wet);        setText('dm-reverb-wet-val',   fx.reverb.wet);
+        set('dm-reverb-size',         fx.reverb.size);
+        setCheck('dm-limiter-enable', fx.limiter.enabled);
+        set('dm-limiter-threshold',   fx.limiter.threshold); setText('dm-limiter-ceil-val', fx.limiter.threshold);
     }
 
     function init() {
@@ -860,6 +955,40 @@ const DrumMachine = (function () {
 
         // ── Kit ───────────────────────────────────────────────────────
         document.getElementById('dm-kit-select')?.addEventListener('change', function () { switchKit(this.value); });
+
+        // ── FX controls ───────────────────────────────────────────────
+        const onFX = () => { applyFX(); saveState(); };
+
+        document.getElementById('dm-comp-enable')?.addEventListener('change', function () { fx.comp.enabled = this.checked; onFX(); });
+        document.getElementById('dm-comp-threshold')?.addEventListener('input', function () {
+            fx.comp.threshold = parseInt(this.value);
+            const el = document.getElementById('dm-comp-thresh-val'); if (el) el.textContent = this.value;
+            onFX();
+        });
+        document.getElementById('dm-comp-ratio')?.addEventListener('input', function () {
+            fx.comp.ratio = parseInt(this.value);
+            const el = document.getElementById('dm-comp-ratio-val'); if (el) el.textContent = this.value;
+            onFX();
+        });
+
+        document.getElementById('dm-reverb-enable')?.addEventListener('change', function () { fx.reverb.enabled = this.checked; onFX(); });
+        document.getElementById('dm-reverb-wet')?.addEventListener('input', function () {
+            fx.reverb.wet = parseInt(this.value);
+            const el = document.getElementById('dm-reverb-wet-val'); if (el) el.textContent = this.value;
+            onFX();
+        });
+        document.getElementById('dm-reverb-size')?.addEventListener('change', function () {
+            fx.reverb.size = this.value;
+            if (ctx) fxReverb.buffer = buildReverbIR(this.value);
+            saveState();
+        });
+
+        document.getElementById('dm-limiter-enable')?.addEventListener('change', function () { fx.limiter.enabled = this.checked; onFX(); });
+        document.getElementById('dm-limiter-threshold')?.addEventListener('input', function () {
+            fx.limiter.threshold = parseFloat(this.value);
+            const el = document.getElementById('dm-limiter-ceil-val'); if (el) el.textContent = this.value;
+            onFX();
+        });
 
         // ── Transport ─────────────────────────────────────────────────
         document.getElementById('dm-play-pattern')?.addEventListener('click', () => play('pattern'));
