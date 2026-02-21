@@ -174,7 +174,8 @@
         AudioEngine.stopAll();
         activeVoices.clear();
         activeNoteVisuals.clear();
-        voicePrevY.clear();
+        // Don't clear voicePrevY — keeping prior positions means the next hand-tracking
+        // frame won't see a "first detection" and immediately re-trigger the note.
         resetHandDisplay(0);
         resetHandDisplay(1);
         // Visual feedback
@@ -662,6 +663,11 @@
             voicePrevY.set(id, yPos);
 
             if (isBelowThreshold) {
+                // Guard: after panic, activeVoices is cleared but voicePrevY is kept.
+                // If voice wasn't active, no crossing occurred, and we have prior position
+                // data, don't create a new voice — wait for a genuine threshold crossing.
+                if (!wasBelowThreshold && !didCross && prevY !== undefined) continue;
+
                 // Hand is below threshold - play or continue note
                 // Aftertouch: volume increases as hand goes deeper below threshold
                 const depth = ATTACK_THRESHOLD - yPos; // 0 to ATTACK_THRESHOLD
@@ -773,6 +779,9 @@
                 voicePrevY.set(voiceId, yPos);
 
                 if (isBelowThreshold) {
+                    // Same panic-guard as hand mode
+                    if (!wasBelowThreshold && !didCross && prevY !== undefined) continue;
+
                     // Finger is below threshold - play or continue note
                     // Aftertouch: volume increases as finger goes deeper below threshold
                     const depth = ATTACK_THRESHOLD - yPos;
