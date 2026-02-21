@@ -93,6 +93,71 @@ const DrumMachine = (function () {
     // Typical per-instrument step density for randomize (0–1)
     const RAND_DENSITY = { kick: 0.28, snare: 0.15, hihat: 0.5, openhat: 0.1, clap: 0.15, tom: 0.18, cowbell: 0.1, crash: 0.06 };
 
+    // Genre pattern templates — 16 probability values per instrument (wraps for 8/32 step counts)
+    // 0 = never, 1 = always, 0.x = sometimes — adds controlled randomness while staying musical
+    const STYLE_TEMPLATES = {
+        house: { label: 'House',
+            kick:    [1,0,0,0,    1,0,0,0,    1,0,0,0,    1,0,0.2,0],
+            snare:   [0,0,0,0,    1,0,0,0.1,  0,0,0,0,    1,0,0,0.1],
+            hihat:   [0.9,0,0.9,0, 0.9,0,0.9,0, 0.9,0,0.9,0, 0.9,0,0.9,0.4],
+            openhat: [0,0,0,0,    0.7,0,0,0,  0,0,0,0,    0.7,0,0,0],
+            clap:    [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0,0],
+            tom:     [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0.3,0.3],
+            cowbell: [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0,0],
+            crash:   [0.7,0,0,0,  0,0,0,0,    0,0,0,0,    0,0,0,0],
+        },
+        hiphop: { label: 'Hip-Hop',
+            kick:    [1,0,0,0.3,  0,0,0.3,0,  0.6,0,0.4,0, 0,0,0.2,0],
+            snare:   [0,0,0,0,    1,0,0,0.2,  0,0,0,0,    1,0,0,0.3],
+            hihat:   [0.8,0,0.7,0, 0.8,0,0.7,0, 0.8,0,0.7,0, 0.8,0.4,0.7,0],
+            openhat: [0,0,0,0,    0,0,0.4,0,  0,0,0,0,    0,0,0.4,0],
+            clap:    [0,0,0,0,    0.9,0,0,0,  0,0,0,0,    0.9,0,0,0.2],
+            tom:     [0,0,0,0,    0,0,0,0.2,  0,0,0,0,    0,0,0,0.2],
+            cowbell: [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0,0],
+            crash:   [0.3,0,0,0,  0,0,0,0,    0,0,0,0,    0,0,0,0],
+        },
+        techno: { label: 'Techno',
+            kick:    [1,0,0,0,    1,0,0,0,    1,0,0,0,    1,0,0,0],
+            snare:   [0,0,0,0,    0,0,0,0,    0,0,0,0,    0.2,0,0.2,0],
+            hihat:   [1,0.6,1,0.6, 1,0.6,1,0.6, 1,0.6,1,0.6, 1,0.6,1,0.6],
+            openhat: [0,0,0,0,    0.8,0,0,0,  0,0,0,0,    0.8,0,0,0],
+            clap:    [0,0,0,0,    0.5,0,0,0,  0,0,0,0,    0.5,0,0,0],
+            tom:     [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0.5,0.5],
+            cowbell: [0,0.3,0,0.3, 0,0.3,0,0.3, 0,0.3,0,0.3, 0,0.3,0,0.3],
+            crash:   [0.5,0,0,0,  0,0,0,0,    0,0,0,0,    0,0,0,0],
+        },
+        dnb: { label: 'Drum & Bass',
+            kick:    [1,0,0,0,    0,0.8,0,0,  0,0,0.4,0,  0,0,0.3,0],
+            snare:   [0,0,0,0,    0,0,0,0,    1,0,0,0,    0,0,0.3,0],
+            hihat:   [0.9,0.6,0.9,0.6, 0.9,0.6,0.9,0.6, 0.9,0.6,0.9,0.6, 0.9,0.6,0.9,0.6],
+            openhat: [0,0,0.4,0,  0,0.4,0,0,  0,0,0.4,0,  0,0.4,0,0],
+            clap:    [0,0,0,0,    0,0,0,0,    0.7,0,0,0,  0,0,0,0],
+            tom:     [0,0,0,0,    0,0,0,0.2,  0,0,0,0,    0,0,0,0.2],
+            cowbell: [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0,0],
+            crash:   [0.4,0,0,0,  0,0,0,0,    0,0,0,0,    0,0,0,0],
+        },
+        lofi: { label: 'Lo-fi',
+            kick:    [0.9,0,0,0.2, 0,0.3,0,0, 0.7,0,0.2,0, 0,0,0.3,0],
+            snare:   [0,0,0,0,    0.8,0,0,0.2, 0,0,0.2,0, 0.8,0,0,0.2],
+            hihat:   [0.7,0,0.6,0, 0.7,0,0.6,0, 0.7,0,0.6,0, 0.7,0,0.6,0],
+            openhat: [0,0,0,0,    0.3,0,0,0,  0,0,0,0,    0.3,0,0,0],
+            clap:    [0,0,0,0,    0.5,0,0,0.2, 0,0,0.2,0, 0.5,0,0,0],
+            tom:     [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0.2,0.2],
+            cowbell: [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0,0],
+            crash:   [0.2,0,0,0,  0,0,0,0,    0,0,0,0,    0,0,0,0],
+        },
+        reggae: { label: 'Reggae',
+            kick:    [0,0,0,0,    0,0,0.3,0,  1,0,0,0,    0,0,0.3,0],
+            snare:   [0,0,0,0,    0,0,0,0,    1,0,0,0,    0,0,0,0],
+            hihat:   [0.9,0,0.9,0, 0.9,0,0.9,0, 0.9,0,0.9,0, 0.9,0,0.9,0],
+            openhat: [0,0,0,0,    0.8,0,0,0,  0,0,0,0,    0.8,0,0,0],
+            clap:    [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0,0],
+            tom:     [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0,0],
+            cowbell: [0.4,0,0,0,  0,0,0,0,    0,0,0,0,    0.4,0,0,0],
+            crash:   [0,0,0,0,    0,0,0,0,    0,0,0,0,    0,0,0,0],
+        },
+    };
+
     const instrumentVolumes = {};
     const mutedInstruments = new Set();
     INSTRUMENTS.forEach(i => { instrumentVolumes[i.id] = 0.8; });
@@ -532,6 +597,23 @@ const DrumMachine = (function () {
         saveState();
     }
 
+    function generatePattern(styleId) {
+        const pat = patterns[currentPatternId];
+        if (!pat) return;
+        const tmpl = STYLE_TEMPLATES[styleId];
+        INSTRUMENTS.forEach(instr => {
+            const probs = tmpl ? (tmpl[instr.id] || []) : null;
+            pat.steps[instr.id] = Array.from({ length: stepsCount }, (_, i) => {
+                const p = probs ? (probs[i % 16] || 0) : (RAND_DENSITY[instr.id] || 0.15);
+                return Math.random() < p;
+            });
+            pat.vel[instr.id]  = new Array(stepsCount).fill(1.0);
+            pat.prob[instr.id] = new Array(stepsCount).fill(100);
+        });
+        rebuildSequencerSteps();
+        saveState();
+    }
+
     function toggleMute(instrId) {
         mutedInstruments[mutedInstruments.has(instrId) ? 'delete' : 'add'](instrId);
         const row = document.querySelector('.dm-row[data-instrument="' + instrId + '"]');
@@ -806,6 +888,12 @@ const DrumMachine = (function () {
             if (currentPatternId && patterns[currentPatternId]) patNameInput.value = patterns[currentPatternId].name;
             patNameInput.addEventListener('input', function () { if (patterns[currentPatternId]) { patterns[currentPatternId].name = this.value; updatePatternSelect(); renderTimeline(); saveState(); } });
         }
+
+        // ── Generate ──────────────────────────────────────────────────
+        document.getElementById('dm-generate-btn')?.addEventListener('click', function () {
+            const styleId = document.getElementById('dm-style-select')?.value || 'house';
+            generatePattern(styleId);
+        });
 
         document.getElementById('dm-new-pattern')?.addEventListener('click', function () { const nid = createPattern('Pattern ' + patternCounter); updatePatternSelect(); loadPattern(nid); saveState(); });
         document.getElementById('dm-copy-pattern')?.addEventListener('click', function () {

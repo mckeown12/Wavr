@@ -959,6 +959,27 @@ input[type="range"]::-moz-range-thumb {
     color: var(--coral);
 }
 
+.dm-btn-turquoise {
+    background: var(--turquoise);
+    border: 2px solid var(--turquoise);
+    color: white;
+}
+
+.dm-btn-turquoise:hover {
+    background: #3bb8af;
+    border-color: #3bb8af;
+}
+
+/* Generate row */
+.dm-generate-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid #f0e8d8;
+}
+
 /* ── Sequencer ──────────────────────────────────────────────────── */
 .dm-sequencer-card {
     overflow-x: auto;
