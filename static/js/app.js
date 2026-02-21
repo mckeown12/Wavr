@@ -40,6 +40,7 @@
     const webcamContainer = document.getElementById('webcam-container');
     const fullscreenBtn = document.getElementById('fullscreen-btn');
     const panicBtn = document.getElementById('panic-btn');
+    const randomizeBtn = document.getElementById('randomize-btn');
 
     // Per-hand display elements
     const handDisplays = [
@@ -62,7 +63,7 @@
     let fingerModeEnabled = false;
 
     // Attack threshold (Y position where crossing triggers notes)
-    const ATTACK_THRESHOLD = 0.5; // Middle of screen
+    const ATTACK_THRESHOLD = 0.33; // Bottom third of screen
 
     // --- Settings event listeners ---
 
@@ -70,28 +71,34 @@
         AudioEngine.setMode(e.target.value);
         // Show waveform selector only for Clean Wave mode
         waveformSetting.classList.toggle('hidden', e.target.value !== 'clean');
+        saveSettings();
     });
 
     waveformSelect.addEventListener('change', (e) => {
         AudioEngine.setWaveform(e.target.value);
+        saveSettings();
     });
 
     scaleSelect.addEventListener('change', (e) => {
         AudioEngine.setScale(e.target.value);
         redrawNoteLines();
+        saveSettings();
     });
 
     rootSelect.addEventListener('change', (e) => {
         AudioEngine.setRootNote(parseInt(e.target.value, 10));
         redrawNoteLines();
+        saveSettings();
     });
 
     lowNoteSelect.addEventListener('change', (e) => {
         updateNoteRange();
+        saveSettings();
     });
 
     highNoteSelect.addEventListener('change', (e) => {
         updateNoteRange();
+        saveSettings();
     });
 
     glideSlider.addEventListener('input', (e) => {
@@ -104,30 +111,35 @@
         } else {
             glideLabel.textContent = ms + 'ms (slow)';
         }
+        saveSettings();
     });
 
     attackSlider.addEventListener('input', (e) => {
         const ms = parseInt(e.target.value, 10);
         AudioEngine.setAttack(ms / 1000);
         attackLabel.textContent = ms + 'ms';
+        saveSettings();
     });
 
     decaySlider.addEventListener('input', (e) => {
         const ms = parseInt(e.target.value, 10);
         AudioEngine.setDecay(ms / 1000);
         decayLabel.textContent = ms + 'ms';
+        saveSettings();
     });
 
     sustainSlider.addEventListener('input', (e) => {
         const percent = parseInt(e.target.value, 10);
         AudioEngine.setSustain(percent / 100);
         sustainLabel.textContent = percent + '%';
+        saveSettings();
     });
 
     releaseSlider.addEventListener('input', (e) => {
         const ms = parseInt(e.target.value, 10);
         AudioEngine.setRelease(ms / 1000);
         releaseLabel.textContent = ms + 'ms';
+        saveSettings();
     });
 
     multihandToggle.addEventListener('change', (e) => {
@@ -182,6 +194,78 @@
         }
     });
 
+    // --- Randomize settings ---
+
+    function randomizeSettings() {
+        // Synth mode
+        const synthModes = ['fm', 'clean', 'warm', 'pad', 'theremin', 'organ', 'bitcrush'];
+        const randomSynth = synthModes[Math.floor(Math.random() * synthModes.length)];
+        synthSelect.value = randomSynth;
+        AudioEngine.setMode(randomSynth);
+        waveformSetting.classList.toggle('hidden', randomSynth !== 'clean');
+
+        // Scale
+        const scales = ['chromatic', 'major', 'minor', 'pentatonic', 'pent_minor', 'blues', 'dorian', 'mixolydian', 'harmonic_min', 'whole_tone'];
+        const randomScale = scales[Math.floor(Math.random() * scales.length)];
+        scaleSelect.value = randomScale;
+        AudioEngine.setScale(randomScale);
+
+        // Root note
+        const roots = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47]; // C3-B3
+        const randomRoot = roots[Math.floor(Math.random() * roots.length)];
+        rootSelect.value = randomRoot;
+        AudioEngine.setRootNote(randomRoot);
+
+        // Glide
+        const randomGlide = Math.floor(Math.random() * 500);
+        glideSlider.value = randomGlide;
+        AudioEngine.setGlideTime(randomGlide / 1000);
+        if (randomGlide <= 20) glideLabel.textContent = 'Snap';
+        else if (randomGlide <= 150) glideLabel.textContent = randomGlide + 'ms';
+        else glideLabel.textContent = randomGlide + 'ms (slow)';
+
+        // ADSR
+        const randomAttack = Math.floor(Math.random() * 1000) + 1;
+        attackSlider.value = randomAttack;
+        AudioEngine.setAttack(randomAttack / 1000);
+        attackLabel.textContent = randomAttack + 'ms';
+
+        const randomDecay = Math.floor(Math.random() * 2000) + 1;
+        decaySlider.value = randomDecay;
+        AudioEngine.setDecay(randomDecay / 1000);
+        decayLabel.textContent = randomDecay + 'ms';
+
+        const randomSustain = Math.floor(Math.random() * 100);
+        sustainSlider.value = randomSustain;
+        AudioEngine.setSustain(randomSustain / 100);
+        sustainLabel.textContent = randomSustain + '%';
+
+        const randomRelease = Math.floor(Math.random() * 3000) + 1;
+        releaseSlider.value = randomRelease;
+        AudioEngine.setRelease(randomRelease / 1000);
+        releaseLabel.textContent = randomRelease + 'ms';
+
+        // Note range
+        const lowNotes = [24, 36, 48, 60];
+        const highNotes = [72, 84, 96, 108];
+        const randomLow = lowNotes[Math.floor(Math.random() * lowNotes.length)];
+        const randomHigh = highNotes[Math.floor(Math.random() * highNotes.length)];
+        lowNoteSelect.value = randomLow;
+        highNoteSelect.value = randomHigh;
+        updateNoteRange();
+
+        // Save all settings to localStorage
+        saveSettings();
+
+        // Visual feedback
+        randomizeBtn.textContent = '✓ Randomized!';
+        setTimeout(() => {
+            randomizeBtn.textContent = '🎲 Randomize All Settings';
+        }, 1000);
+    }
+
+    randomizeBtn.addEventListener('click', randomizeSettings);
+
     // --- Fullscreen functionality ---
 
     fullscreenBtn.addEventListener('click', () => {
@@ -206,9 +290,116 @@
         }
     });
 
-    // Initialize with defaults
-    AudioEngine.setScale('major');
-    AudioEngine.setGlideTime(0.02);
+    // --- localStorage for settings persistence ---
+
+    function saveSettings() {
+        const settings = {
+            synthMode: synthSelect.value,
+            scale: scaleSelect.value,
+            root: rootSelect.value,
+            glide: glideSlider.value,
+            attack: attackSlider.value,
+            decay: decaySlider.value,
+            sustain: sustainSlider.value,
+            release: releaseSlider.value,
+            lowNote: lowNoteSelect.value,
+            highNote: highNoteSelect.value,
+            waveform: waveformSelect.value,
+        };
+        localStorage.setItem('wavr-settings', JSON.stringify(settings));
+    }
+
+    function loadSettings() {
+        try {
+            const saved = localStorage.getItem('wavr-settings');
+            if (!saved) return false;
+
+            const settings = JSON.parse(saved);
+
+            // Apply synth mode
+            if (settings.synthMode) {
+                synthSelect.value = settings.synthMode;
+                AudioEngine.setMode(settings.synthMode);
+                waveformSetting.classList.toggle('hidden', settings.synthMode !== 'clean');
+            }
+
+            // Apply scale
+            if (settings.scale) {
+                scaleSelect.value = settings.scale;
+                AudioEngine.setScale(settings.scale);
+            }
+
+            // Apply root
+            if (settings.root) {
+                rootSelect.value = settings.root;
+                AudioEngine.setRootNote(parseInt(settings.root, 10));
+            }
+
+            // Apply glide
+            if (settings.glide !== undefined) {
+                glideSlider.value = settings.glide;
+                const ms = parseInt(settings.glide, 10);
+                AudioEngine.setGlideTime(ms / 1000);
+                if (ms <= 20) glideLabel.textContent = 'Snap';
+                else if (ms <= 150) glideLabel.textContent = ms + 'ms';
+                else glideLabel.textContent = ms + 'ms (slow)';
+            }
+
+            // Apply ADSR
+            if (settings.attack) {
+                attackSlider.value = settings.attack;
+                const ms = parseInt(settings.attack, 10);
+                AudioEngine.setAttack(ms / 1000);
+                attackLabel.textContent = ms + 'ms';
+            }
+            if (settings.decay) {
+                decaySlider.value = settings.decay;
+                const ms = parseInt(settings.decay, 10);
+                AudioEngine.setDecay(ms / 1000);
+                decayLabel.textContent = ms + 'ms';
+            }
+            if (settings.sustain !== undefined) {
+                sustainSlider.value = settings.sustain;
+                const percent = parseInt(settings.sustain, 10);
+                AudioEngine.setSustain(percent / 100);
+                sustainLabel.textContent = percent + '%';
+            }
+            if (settings.release) {
+                releaseSlider.value = settings.release;
+                const ms = parseInt(settings.release, 10);
+                AudioEngine.setRelease(ms / 1000);
+                releaseLabel.textContent = ms + 'ms';
+            }
+
+            // Apply note range
+            if (settings.lowNote) {
+                lowNoteSelect.value = settings.lowNote;
+            }
+            if (settings.highNote) {
+                highNoteSelect.value = settings.highNote;
+            }
+            if (settings.lowNote || settings.highNote) {
+                updateNoteRange();
+            }
+
+            // Apply waveform
+            if (settings.waveform) {
+                waveformSelect.value = settings.waveform;
+                AudioEngine.setWaveform(settings.waveform);
+            }
+
+            return true;
+        } catch (e) {
+            console.error('Failed to load settings:', e);
+            return false;
+        }
+    }
+
+    // Initialize with defaults or load from localStorage
+    if (!loadSettings()) {
+        AudioEngine.setScale('major');
+        AudioEngine.setGlideTime(0.02);
+    }
 
     // Current note lines cache
     let noteLines = [];
@@ -331,12 +522,15 @@
         ctx.lineTo(width, thresholdY);
         ctx.stroke();
 
-        // Draw label with arrow
+        // Draw label with arrow (flip text back so it's readable)
         ctx.setLineDash([]);
+        ctx.save();
+        ctx.scale(-1, 1);
         ctx.fillStyle = 'rgba(255, 107, 107, 0.8)';
         ctx.font = 'bold 13px Inter, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText('↓ Cross to play', 10, thresholdY - 8);
+        ctx.fillText('↓ Cross to play', -width + 10, thresholdY - 8);
+        ctx.restore();
 
         ctx.restore();
     }
@@ -469,7 +663,10 @@
 
             if (isBelowThreshold) {
                 // Hand is below threshold - play or continue note
-                const volNorm = 0.7;
+                // Aftertouch: volume increases as hand goes deeper below threshold
+                const depth = ATTACK_THRESHOLD - yPos; // 0 to ATTACK_THRESHOLD
+                const aftertouch = depth / ATTACK_THRESHOLD; // 0 to 1
+                const volNorm = 0.4 + (0.6 * aftertouch); // 0.4 to 1.0
 
                 // Check if this is a new attack (first time below threshold or crossing)
                 const isNewAttack = !wasBelowThreshold || didCross;
@@ -576,8 +773,13 @@
 
                 if (isBelowThreshold) {
                     // Finger is below threshold - play or continue note
+                    // Aftertouch: volume increases as finger goes deeper below threshold
+                    const depth = ATTACK_THRESHOLD - yPos;
+                    const aftertouch = depth / ATTACK_THRESHOLD;
+                    const volNorm = 0.4 + (0.6 * aftertouch);
+
                     const isNewAttack = !wasBelowThreshold || didCross;
-                    const freq = AudioEngine.updateVoice(voiceId, freqNorm, 0.6, 0.5, didCross);
+                    const freq = AudioEngine.updateVoice(voiceId, freqNorm, volNorm, 0.5, didCross);
 
                     // If new attack, trigger visual
                     if (isNewAttack) {

@@ -607,6 +607,33 @@ input[type="range"]::-moz-range-thumb {
     transform: scale(0.98);
 }
 
+/* === Randomize Button === */
+.randomize-button {
+    width: 100%;
+    padding: 10px 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border: 2px solid var(--turquoise);
+    border-radius: 8px;
+    background: white;
+    color: var(--turquoise);
+    transition: all 0.2s;
+}
+
+.randomize-button:hover {
+    background: var(--turquoise);
+    color: white;
+    transform: scale(1.02);
+}
+
+.randomize-button:active {
+    transform: scale(0.98);
+}
+
 /* === Recording === */
 .recording-controls {
     display: flex;

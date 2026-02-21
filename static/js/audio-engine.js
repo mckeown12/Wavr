@@ -499,11 +499,28 @@ const AudioEngine = (() => {
     }
 
     /**
-     * Stop all voices.
+     * Stop all voices immediately (hard stop, for panic).
      */
     function stopAll() {
+        const now = ctx ? ctx.currentTime : 0;
         for (const id of Object.keys(voices)) {
-            destroyVoice(id);
+            const voice = voices[id];
+            if (!voice) continue;
+
+            // Immediate cutoff (10ms to avoid clicks)
+            try {
+                voice.gain.gain.cancelScheduledValues(now);
+                voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+                voice.gain.gain.linearRampToValueAtTime(0, now + 0.01);
+            } catch(e) {}
+
+            setTimeout(() => {
+                teardownModeNodes(voice);
+                try { voice.filter.disconnect(); } catch(e) {}
+                try { voice.gain.disconnect(); } catch(e) {}
+                voice.playing = false;
+                delete voices[id];
+            }, 50);
         }
     }
 
