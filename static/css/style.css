@@ -1099,6 +1099,226 @@ input[type="range"]::-moz-range-thumb {
     width: 100%;
 }
 
+/* Mute button */
+.dm-instr-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dm-mute-btn {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: 1.5px solid #d8d0c8;
+    background: transparent;
+    font-size: 0.55rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    cursor: pointer;
+    color: #bbb;
+    padding: 0;
+    line-height: 1;
+    transition: all 0.15s;
+}
+
+.dm-mute-btn:hover {
+    border-color: var(--coral);
+    color: var(--coral);
+}
+
+.dm-mute-btn.dm-muted {
+    background: var(--coral);
+    border-color: var(--coral);
+    color: white;
+}
+
+.dm-row-muted .dm-steps .dm-step-btn {
+    opacity: 0.3;
+}
+
+.dm-row-muted .dm-instr-name,
+.dm-row-muted .dm-instr-dot {
+    opacity: 0.45;
+}
+
+/* Tap tempo button */
+.dm-tap-btn {
+    flex-shrink: 0;
+}
+
+/* Randomize row button */
+.dm-rand-btn {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: 1.5px solid #d8d0c8;
+    background: transparent;
+    font-size: 0.75rem;
+    cursor: pointer;
+    color: #bbb;
+    padding: 0;
+    line-height: 1;
+    transition: all 0.15s;
+}
+
+.dm-rand-btn:hover {
+    border-color: var(--turquoise);
+    color: var(--turquoise);
+}
+
+/* Ghost step — quieter hit */
+.dm-step-btn.dm-step-active.dm-step-ghost {
+    background: color-mix(in srgb, var(--instr-color, #4ECDC4) 38%, #f5f0e8);
+    border-color: color-mix(in srgb, var(--instr-color, #4ECDC4) 38%, #e4ddd4);
+    box-shadow: none;
+}
+
+/* Probability step — shows a % badge */
+.dm-step-btn.dm-step-active.dm-step-prob::before {
+    content: attr(data-prob) '%';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    font-size: 0.45rem;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1;
+    pointer-events: none;
+    letter-spacing: 0;
+}
+
+/* Timeline slot — use direct style colors now, not hsl var */
+.dm-timeline-slot.dm-timeline-slot-filled {
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+/* Slot picker popover */
+.dm-slot-picker {
+    position: absolute;
+    display: none;
+    background: var(--card-bg);
+    border: 2px solid #e8e0d4;
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 9999;
+    min-width: 168px;
+}
+
+.dm-slot-picker-title {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray);
+    padding: 2px 8px 6px;
+    border-bottom: 1px solid #f0e8d8;
+    margin-bottom: 4px;
+}
+
+.dm-slot-picker-options {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.dm-slot-picker-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 10px 7px 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    border-left: 3px solid transparent;
+    background: transparent;
+    border-radius: 6px;
+    color: var(--navy);
+    transition: background 0.1s;
+}
+
+.dm-slot-picker-option:hover {
+    background: #f5f0e8;
+}
+
+.dm-slot-picker-option.active {
+    background: rgba(78, 205, 196, 0.12);
+    color: var(--turquoise);
+}
+
+.dm-slot-picker-remove {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--coral);
+    border-radius: 6px;
+    text-align: left;
+    border-top: 1px solid #f0e8d8;
+    transition: background 0.1s;
+}
+
+.dm-slot-picker-remove:hover {
+    background: rgba(255, 107, 107, 0.08);
+}
+
+/* Theremin mute button */
+.status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    gap: 0.75rem;
+}
+
+.status-row .status {
+    margin-top: 0;
+    flex: 1;
+}
+
+.theremin-mute-btn {
+    flex-shrink: 0;
+    padding: 0.32rem 0.75rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border: 2px solid #e8e0d4;
+    border-radius: 8px;
+    background: white;
+    color: var(--gray);
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.theremin-mute-btn:hover {
+    border-color: var(--turquoise);
+    color: var(--turquoise);
+}
+
+.theremin-mute-btn.theremin-muted {
+    background: var(--coral);
+    border-color: var(--coral);
+    color: white;
+}
+
 /* ── Timeline ───────────────────────────────────────────────────── */
 .dm-timeline-header {
     display: flex;

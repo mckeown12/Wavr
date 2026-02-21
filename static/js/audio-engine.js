@@ -40,6 +40,14 @@ const AudioEngine = (() => {
         whole_tone:   { name: 'Whole Tone',       notes: [0,2,4,6,8,10] },
     };
 
+    // --- Mute ---
+    let isMuted = false;
+
+    function setMuted(v) {
+        isMuted = v;
+        if (v) stopAll();
+    }
+
     // --- Voices (one per hand) ---
     const voices = {}; // keyed by voice id (0, 1)
 
@@ -369,6 +377,7 @@ const AudioEngine = (() => {
      * @param {boolean} retrigger - If true, retrigger the ADSR envelope
      */
     function updateVoice(id, freqNorm, volNorm, openness, retrigger = false) {
+        if (isMuted) return null;
         let voice = voices[id];
         if (!voice) {
             voice = createVoice(id);
@@ -702,7 +711,7 @@ const AudioEngine = (() => {
     }
 
     return {
-        updateVoice, stopVoice, stopAll,
+        updateVoice, stopVoice, stopAll, setMuted,
         setMode, setScale, setRootNote, setGlideTime, setWaveform, setCustomWave,
         setFreqRange, getFreqRange, getScaleNotes,
         getScales, getFrequency, getNoteName,

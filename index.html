@@ -83,10 +83,15 @@
                     </div>
                 </div>
 
-                <!-- Status -->
-                <div class="status" id="status">
-                    <span class="status-dot"></span>
-                    Show hand to play
+                <!-- Status + Mute -->
+                <div class="status-row">
+                    <div class="status" id="status">
+                        <span class="status-dot"></span>
+                        Show hand to play
+                    </div>
+                    <button id="theremin-mute-btn" class="theremin-mute-btn" title="Silence the theremin while you work on beats">
+                        Theremin: On
+                    </button>
                 </div>
             </div>
 
@@ -325,6 +330,17 @@
                         <label class="dm-label">BPM</label>
                         <input type="number" id="dm-bpm-display" class="dm-bpm-input" value="120" min="40" max="240">
                         <input type="range" id="dm-bpm-slider" min="40" max="240" value="120">
+                        <button id="dm-tap-tempo" class="dm-btn dm-btn-outline dm-tap-btn">Tap</button>
+                    </div>
+                    <div class="dm-control-group">
+                        <label class="dm-label">Kit</label>
+                        <select id="dm-kit-select" class="dm-select">
+                            <option value="acoustic">Acoustic</option>
+                            <option value="cr78">CR-78</option>
+                            <option value="techno">Techno</option>
+                            <option value="linn">LinnDrum</option>
+                            <option value="synth">Synth</option>
+                        </select>
                     </div>
                     <div class="dm-control-group">
                         <label class="dm-label">Steps</label>
@@ -389,9 +405,30 @@
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
+    <!-- Slot picker popover (shared by drum machine timeline) -->
+    <div id="dm-slot-picker" class="dm-slot-picker" role="menu">
+        <div class="dm-slot-picker-title">Place pattern</div>
+        <div id="dm-slot-picker-options" class="dm-slot-picker-options"></div>
+        <button id="dm-slot-picker-remove" class="dm-slot-picker-remove">&#10005; Remove</button>
+    </div>
+
     <script src="./static/js/audio-engine.js"></script>
     <script src="./static/js/hand-tracking.js"></script>
     <script src="./static/js/app.js"></script>
     <script src="./static/js/drum-machine.js"></script>
+    <script>
+        // Theremin mute toggle — wired here so it works without modifying app.js
+        (function () {
+            const btn = document.getElementById('theremin-mute-btn');
+            if (!btn) return;
+            let muted = false;
+            btn.addEventListener('click', function () {
+                muted = !muted;
+                AudioEngine.setMuted(muted);
+                btn.textContent = muted ? 'Theremin: Muted' : 'Theremin: On';
+                btn.classList.toggle('theremin-muted', muted);
+            });
+        })();
+    </script>
 </body>
 </html>
