@@ -702,6 +702,549 @@ input[type="range"]::-moz-range-thumb {
     min-height: 1.5rem;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   TAB NAVIGATION
+══════════════════════════════════════════════════════════════════ */
+.tab-nav {
+    display: flex;
+    justify-content: center;
+    background: linear-gradient(135deg, #FFECD2 0%, #FCB69F 50%, #FF9A9E 100%);
+    padding: 0 1.5rem;
+    gap: 0.25rem;
+    padding-bottom: 0;
+}
+
+.tab-btn {
+    padding: 0.7rem 2.2rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    cursor: pointer;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+    color: rgba(44, 62, 80, 0.55);
+    transition: color 0.2s, border-color 0.2s;
+    margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+    color: var(--navy);
+}
+
+.tab-btn.active {
+    color: var(--navy);
+    border-bottom-color: var(--coral);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DRUM MACHINE PANEL
+══════════════════════════════════════════════════════════════════ */
+.dm-panel {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.dm-card-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.85rem;
+}
+
+/* ── Top row: Transport + Patterns ──────────────────────────────── */
+.dm-top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.dm-transport-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.dm-divider {
+    width: 1px;
+    height: 28px;
+    background: #e8e0d4;
+    margin: 0 0.25rem;
+}
+
+/* Play / Stop buttons */
+.dm-play-btn,
+.dm-stop-btn {
+    padding: 0.55rem 1.3rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.dm-play-btn {
+    background: var(--turquoise);
+    color: white;
+    border: 2px solid var(--turquoise);
+}
+
+.dm-play-btn:hover {
+    background: #3bb8af;
+    border-color: #3bb8af;
+}
+
+.dm-play-btn.dm-active {
+    background: #3bb8af;
+    border-color: #3bb8af;
+    animation: pulse-record 1.2s ease-in-out infinite;
+}
+
+.dm-stop-btn {
+    background: white;
+    color: var(--coral);
+    border: 2px solid var(--coral);
+}
+
+.dm-stop-btn:hover:not(:disabled) {
+    background: var(--coral);
+    color: white;
+}
+
+.dm-stop-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+/* Control groups (label + input) */
+.dm-control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.dm-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray);
+    white-space: nowrap;
+}
+
+.dm-bpm-input {
+    width: 58px;
+    padding: 0.28rem 0.35rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border: 2px solid #f0e8d8;
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--navy);
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.dm-bpm-input::-webkit-outer-spin-button,
+.dm-bpm-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+}
+
+.dm-bpm-input:focus {
+    outline: none;
+    border-color: var(--coral);
+}
+
+.dm-select {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    padding: 0.32rem 0.5rem;
+    border: 2px solid #f0e8d8;
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--navy);
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.dm-select:focus {
+    outline: none;
+    border-color: var(--coral);
+}
+
+/* Pattern section */
+.dm-pattern-row {
+    display: flex;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+}
+
+.dm-pattern-select {
+    flex: 0 0 auto;
+    min-width: 130px;
+}
+
+.dm-text-input {
+    flex: 1;
+    padding: 0.35rem 0.6rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    border: 2px solid #f0e8d8;
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--navy);
+    transition: border-color 0.2s;
+}
+
+.dm-text-input:focus {
+    outline: none;
+    border-color: var(--turquoise);
+}
+
+.dm-pattern-buttons {
+    display: flex;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+/* Generic small buttons */
+.dm-btn {
+    padding: 0.42rem 0.85rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.dm-btn-outline {
+    background: white;
+    border: 2px solid #e8e0d4;
+    color: var(--gray);
+}
+
+.dm-btn-outline:hover {
+    border-color: var(--turquoise);
+    color: var(--turquoise);
+}
+
+.dm-btn-primary {
+    background: var(--coral);
+    border: 2px solid var(--coral);
+    color: white;
+}
+
+.dm-btn-primary:hover {
+    background: #ff5555;
+    border-color: #ff5555;
+}
+
+.dm-btn-danger:hover {
+    border-color: var(--coral);
+    color: var(--coral);
+}
+
+/* ── Sequencer ──────────────────────────────────────────────────── */
+.dm-sequencer-card {
+    overflow-x: auto;
+}
+
+.dm-seq-top-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.dm-seq-label-col {
+    width: 92px;
+    flex-shrink: 0;
+}
+
+.dm-step-numbers {
+    display: flex;
+    flex: 1;
+    gap: 2px;
+}
+
+.dm-step-num {
+    flex: 1;
+    text-align: center;
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: #ccc;
+    min-width: 26px;
+    user-select: none;
+}
+
+.dm-beat-start {
+    color: var(--gray);
+}
+
+.dm-seq-vol-col {
+    width: 80px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.dm-sequencer-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dm-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dm-instrument-label {
+    width: 92px;
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--navy);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dm-instr-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dm-steps {
+    display: flex;
+    flex: 1;
+    gap: 2px;
+}
+
+.dm-step-btn {
+    flex: 1;
+    min-width: 26px;
+    height: 34px;
+    border: 2px solid #e4ddd4;
+    border-radius: 5px;
+    background: #f5f0e8;
+    cursor: pointer;
+    transition: background 0.1s, border-color 0.1s, transform 0.05s;
+    position: relative;
+    overflow: hidden;
+}
+
+.dm-group-start {
+    margin-left: 5px;
+}
+
+.dm-step-btn:hover {
+    border-color: var(--instr-color, #4ECDC4);
+    background: #ede8df;
+}
+
+.dm-step-btn:active {
+    transform: scale(0.92);
+}
+
+.dm-step-btn.dm-step-active {
+    background: var(--instr-color, #4ECDC4);
+    border-color: var(--instr-color, #4ECDC4);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* Playhead needle */
+.dm-step-btn.dm-playhead::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--navy);
+    border-radius: 3px 3px 0 0;
+}
+
+.dm-step-btn.dm-step-active.dm-playhead {
+    filter: brightness(1.25);
+}
+
+.dm-row-vol {
+    width: 80px;
+    flex-shrink: 0;
+}
+
+.dm-vol-slider {
+    width: 100%;
+}
+
+/* ── Timeline ───────────────────────────────────────────────────── */
+.dm-timeline-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.dm-timeline-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.dm-timeline-loop-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--gray);
+    cursor: pointer;
+}
+
+.dm-timeline-wrapper {
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.dm-timeline-track {
+    display: flex;
+    gap: 4px;
+    min-width: max-content;
+    padding: 4px 0;
+}
+
+.dm-timeline-slot {
+    width: 72px;
+    height: 52px;
+    border: 2px solid #e4ddd4;
+    border-radius: 8px;
+    background: #f5f0e8;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 4px;
+    color: #ccc;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    word-break: break-word;
+    overflow: hidden;
+    line-height: 1.3;
+    user-select: none;
+}
+
+.dm-timeline-slot:hover {
+    border-color: var(--turquoise);
+}
+
+.dm-timeline-slot.dm-timeline-slot-filled {
+    background: hsla(var(--slot-hue, 0), 62%, 54%, 0.88);
+    border-color: hsla(var(--slot-hue, 0), 62%, 44%, 1);
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+}
+
+.dm-timeline-slot.dm-timeline-slot-current-pat {
+    outline: 2px dashed rgba(255,255,255,0.7);
+    outline-offset: -4px;
+}
+
+.dm-timeline-slot.dm-timeline-slot-playing {
+    box-shadow: 0 0 0 3px var(--navy);
+    transform: scale(1.07);
+    z-index: 2;
+}
+
+.dm-timeline-hint {
+    margin-top: 0.6rem;
+    font-size: 0.72rem;
+    color: #bbb;
+    text-align: center;
+    font-style: italic;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   RESPONSIVE (drum machine)
+══════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+    .dm-top-row {
+        grid-template-columns: 1fr;
+    }
+
+    .dm-transport-row {
+        gap: 0.5rem;
+    }
+
+    .dm-step-btn {
+        min-width: 22px;
+        height: 30px;
+    }
+
+    .dm-instrument-label {
+        width: 72px;
+        font-size: 0.62rem;
+    }
+
+    .dm-seq-label-col {
+        width: 72px;
+    }
+
+    .dm-row-vol,
+    .dm-seq-vol-col {
+        width: 60px;
+    }
+}
+
+@media (max-width: 600px) {
+    .dm-panel {
+        padding: 1rem;
+        gap: 1rem;
+    }
+
+    .dm-instrument-label {
+        width: 58px;
+        font-size: 0.56rem;
+    }
+
+    .dm-seq-label-col {
+        width: 58px;
+    }
+
+    .dm-step-btn {
+        min-width: 18px;
+        height: 28px;
+        border-radius: 3px;
+    }
+}
+
 /* === Responsive === */
 @media (max-width: 900px) {
     .main {

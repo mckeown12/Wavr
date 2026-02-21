@@ -18,7 +18,12 @@
         <p class="subtitle">Computer Vision-Powered Frequency Modulator</p>
     </header>
 
-    <main class="main">
+    <nav class="tab-nav">
+        <button class="tab-btn active" data-tab="theremin">&#9835; Theremin</button>
+        <button class="tab-btn" data-tab="drum-machine">&#9654; Drum Machine</button>
+    </nav>
+
+    <main class="main" id="theremin-panel">
         <!-- Webcam -->
         <section class="webcam-panel">
             <div class="webcam-container" id="webcam-container">
@@ -305,11 +310,88 @@
         </section>
     </main>
 
+    <!-- Drum Machine Panel -->
+    <div id="drum-machine-panel" class="dm-panel" style="display:none">
+
+        <!-- Transport + Pattern controls -->
+        <div class="dm-top-row">
+            <div class="card dm-transport-card">
+                <h2 class="card-title dm-card-title">Transport</h2>
+                <div class="dm-transport-row">
+                    <button id="dm-play" class="dm-play-btn">&#9654; Play</button>
+                    <button id="dm-stop" class="dm-stop-btn">&#9632; Stop</button>
+                    <div class="dm-divider"></div>
+                    <div class="dm-control-group">
+                        <label class="dm-label">BPM</label>
+                        <input type="number" id="dm-bpm-display" class="dm-bpm-input" value="120" min="40" max="240">
+                        <input type="range" id="dm-bpm-slider" min="40" max="240" value="120">
+                    </div>
+                    <div class="dm-control-group">
+                        <label class="dm-label">Steps</label>
+                        <select id="dm-steps-count" class="dm-select">
+                            <option value="8">8</option>
+                            <option value="16" selected>16</option>
+                            <option value="32">32</option>
+                        </select>
+                    </div>
+                    <div class="dm-control-group">
+                        <label class="dm-label">Swing&nbsp;<span id="dm-swing-display">0%</span></label>
+                        <input type="range" id="dm-swing" min="0" max="50" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card dm-pattern-card">
+                <h2 class="card-title dm-card-title">Patterns</h2>
+                <div class="dm-pattern-row">
+                    <select id="dm-pattern-select" class="dm-select dm-pattern-select"></select>
+                    <input type="text" id="dm-pattern-name-input" class="dm-text-input" placeholder="Rename pattern...">
+                </div>
+                <div class="dm-pattern-buttons">
+                    <button id="dm-new-pattern" class="dm-btn dm-btn-outline">+ New</button>
+                    <button id="dm-copy-pattern" class="dm-btn dm-btn-outline">Copy</button>
+                    <button id="dm-delete-pattern" class="dm-btn dm-btn-outline dm-btn-danger">Delete</button>
+                    <button id="dm-save-to-timeline" class="dm-btn dm-btn-primary">Add to Timeline &#8594;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step Sequencer -->
+        <div class="card dm-sequencer-card">
+            <div class="dm-seq-top-row">
+                <div class="dm-seq-label-col"></div>
+                <div class="dm-step-numbers" id="dm-step-numbers"></div>
+                <div class="dm-seq-vol-col"><span class="dm-label">Vol</span></div>
+            </div>
+            <div id="dm-sequencer-rows" class="dm-sequencer-rows"></div>
+        </div>
+
+        <!-- Timeline -->
+        <div class="card dm-timeline-card">
+            <div class="dm-timeline-header">
+                <h2 class="card-title dm-card-title">Timeline</h2>
+                <div class="dm-timeline-actions">
+                    <label class="dm-timeline-loop-label">
+                        <input type="checkbox" id="dm-timeline-loop">
+                        <span>Loop</span>
+                    </label>
+                    <button id="dm-timeline-clear" class="dm-btn dm-btn-outline">Clear All</button>
+                </div>
+            </div>
+            <div class="dm-timeline-wrapper">
+                <div id="dm-timeline-track" class="dm-timeline-track"></div>
+            </div>
+            <p class="dm-timeline-hint">Click a slot to place the current pattern &nbsp;·&nbsp; click again to remove</p>
+        </div>
+
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
     <script src="./static/js/audio-engine.js"></script>
     <script src="./static/js/hand-tracking.js"></script>
     <script src="./static/js/app.js"></script>
+    <script src="./static/js/drum-machine.js"></script>
 </body>
 </html>

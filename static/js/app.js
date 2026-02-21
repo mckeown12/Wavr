@@ -668,8 +668,9 @@
                 const aftertouch = depth / ATTACK_THRESHOLD; // 0 to 1
                 const volNorm = 0.4 + (0.6 * aftertouch); // 0.4 to 1.0
 
-                // Check if this is a new attack (first time below threshold or crossing)
-                const isNewAttack = !wasBelowThreshold || didCross;
+                // Check if this is a new attack
+                // Only trigger if: we crossed the threshold, OR this is first detection (no prevY)
+                const isNewAttack = didCross || (prevY === undefined && !wasBelowThreshold);
 
                 // Update audio voice (retrigger ADSR on crossing)
                 const freq = AudioEngine.updateVoice(id, freqNorm, volNorm, openness, didCross);
@@ -778,7 +779,8 @@
                     const aftertouch = depth / ATTACK_THRESHOLD;
                     const volNorm = 0.4 + (0.6 * aftertouch);
 
-                    const isNewAttack = !wasBelowThreshold || didCross;
+                    // Only trigger if: we crossed the threshold, OR this is first detection
+                    const isNewAttack = didCross || (prevY === undefined && !wasBelowThreshold);
                     const freq = AudioEngine.updateVoice(voiceId, freqNorm, volNorm, 0.5, didCross);
 
                     // If new attack, trigger visual

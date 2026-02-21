@@ -503,25 +503,37 @@ const AudioEngine = (() => {
      */
     function stopAll() {
         const now = ctx ? ctx.currentTime : 0;
+        const voicesToCleanup = [];
+
+        // First pass: immediately stop audio and remove from voices object
         for (const id of Object.keys(voices)) {
             const voice = voices[id];
             if (!voice) continue;
 
-            // Immediate cutoff (10ms to avoid clicks)
+            // Mark as stopped immediately so it won't be updated
+            voice.playing = false;
+            voice.triggered = false;
+
+            // Immediate cutoff (5ms to avoid clicks)
             try {
                 voice.gain.gain.cancelScheduledValues(now);
                 voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-                voice.gain.gain.linearRampToValueAtTime(0, now + 0.01);
+                voice.gain.gain.linearRampToValueAtTime(0, now + 0.005);
             } catch(e) {}
 
-            setTimeout(() => {
+            // Save for cleanup and immediately remove from voices
+            voicesToCleanup.push(voice);
+            delete voices[id];
+        }
+
+        // Second pass: cleanup nodes asynchronously
+        setTimeout(() => {
+            for (const voice of voicesToCleanup) {
                 teardownModeNodes(voice);
                 try { voice.filter.disconnect(); } catch(e) {}
                 try { voice.gain.disconnect(); } catch(e) {}
-                voice.playing = false;
-                delete voices[id];
-            }, 50);
-        }
+            }
+        }, 50);
     }
 
     /**
