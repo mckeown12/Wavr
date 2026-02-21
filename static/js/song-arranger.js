@@ -61,21 +61,38 @@ const SongArranger = (function () {
     const SECTION_COLORS = ['#4ECDC4','#FF6B6B','#A29BFE','#FF9F43','#55EFC4','#FD79A8','#74B9FF','#FDCB6E'];
     const SECTION_TYPES  = ['Verse','Chorus','Bridge','Intro','Outro','Pre-Chorus','Break','Solo','Interlude'];
 
-    // ── SA Piano Roll Config ──────────────────────────────────────────
+    // ── SA Piano Roll Config + Voice Presets ──────────────────────────
     const SA_INSTR_CONFIG = {
-        piano:   { label: 'Piano',   color: '#A29BFE', minPitch: 48, maxPitch: 71 },
-        guitar:  { label: 'Guitar',  color: '#FF9F43', minPitch: 40, maxPitch: 63 },
-        bass:    { label: 'Bass',    color: '#FF6B6B', minPitch: 28, maxPitch: 51 },
-        pad:     { label: 'Pad',     color: '#45B7D1', minPitch: 36, maxPitch: 59 },
-        strings: { label: 'Strings', color: '#55EFC4', minPitch: 48, maxPitch: 71 },
+        piano:   { label: 'Piano',   color: '#A29BFE', minPitch: 48, maxPitch: 71,
+                   voices: [{id:'piano',   label:'Piano'}, {id:'rhodes',  label:'Rhodes'}] },
+        guitar:  { label: 'Guitar',  color: '#FF9F43', minPitch: 40, maxPitch: 63,
+                   voices: [{id:'guitar',  label:'Guitar'},{id:'pluck',   label:'Pluck'}] },
+        bass:    { label: 'Bass',    color: '#FF6B6B', minPitch: 28, maxPitch: 51,
+                   voices: [{id:'bass',    label:'Bass'},  {id:'punch',   label:'Punch'}] },
+        pad:     { label: 'Pad',     color: '#45B7D1', minPitch: 36, maxPitch: 59,
+                   voices: [{id:'pad',     label:'Pad'},   {id:'organ',   label:'Organ'}] },
+        strings: { label: 'Strings', color: '#55EFC4', minPitch: 48, maxPitch: 71,
+                   voices: [{id:'strings', label:'Strings'},{id:'pizz',   label:'Pizz'}] },
     };
     const SA_BLACK_KEYS   = new Set([1, 3, 6, 8, 10]);
     const MAJOR_SCALE_INT = [0, 2, 4, 5, 7, 9, 11];
+
+    // Chord type → nearest named theremin scale
+    const CHORD_TO_SCALE = {
+        'maj':'major', 'min':'minor', '7':'mixolydian', 'maj7':'major',
+        'min7':'dorian', 'dim':'pent_minor', 'aug':'whole_tone',
+        'sus2':'major', 'sus4':'major', 'add9':'major', 'min9':'dorian',
+        'maj9':'major', '6':'major', 'min6':'dorian', 'dim7':'pent_minor', 'hdim7':'minor',
+    };
 
     // ── SA Piano Roll State ───────────────────────────────────────────
     const saPR = { instrId: null, secId: null, dragActive: false, dragState: null };
     const noteResize = { active: false, noteEl: null, pitch: -1, step: -1, startX: 0, startDur: 1 };
     let saCurrentNoteDur = 1;
+
+    // ── Theremin Sync State ───────────────────────────────────────────
+    let thereminSync     = false;  // whether to update AudioEngine scale on chord change
+    let thereminSyncMode = 'chord'; // 'chord' = snap to chord tones | 'scale' = nearest named scale
 
     // ── App State ─────────────────────────────────────────────────────
     let bpm = 120;
@@ -129,18 +146,43 @@ const SongArranger = (function () {
     function piano(notes, t, dur, vel) {
         notes.forEach(midi => {
             const f = midiToFreq(midi);
-            [[f, 'triangle', 1.0],[f*2, 'sine', 0.3],[f*0.5, 'sine', 0.15]].forEach(([freq, type, amp]) => {
+            const det = 1 + (Math.random() - 0.5) * 0.002; // slight random detune
+            [[f*det,'triangle',1.0],[f*2*det,'sine',0.3],[f*0.5,'sine',0.12]].forEach(([freq, type, amp]) => {
                 const osc = ctx.createOscillator();
                 const g   = ctx.createGain();
                 osc.type = type; osc.frequency.value = freq;
                 g.gain.setValueAtTime(0, t);
-                g.gain.linearRampToValueAtTime(vel * amp * 0.7, t + 0.01);
-                g.gain.exponentialRampToValueAtTime(vel * amp * 0.28, t + 0.4);
+                g.gain.linearRampToValueAtTime(vel * amp * 0.7, t + 0.008);
+                g.gain.exponentialRampToValueAtTime(vel * amp * 0.28, t + 0.35);
                 g.gain.setValueAtTime(vel * amp * 0.28, t + dur - 0.08);
                 g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.12);
                 osc.connect(g); g.connect(masterGain);
                 osc.start(t); osc.stop(t + dur + 0.2);
             });
+        });
+    }
+
+    function rhodesKeys(notes, t, dur, vel) {
+        // FM-based electric piano (Rhodes/Wurlitzer character)
+        notes.forEach(midi => {
+            const f = midiToFreq(midi);
+            const osc     = ctx.createOscillator();
+            const mod     = ctx.createOscillator();
+            const modGain = ctx.createGain();
+            const g       = ctx.createGain();
+            osc.type = 'sine'; osc.frequency.value = f;
+            mod.type = 'sine'; mod.frequency.value = f * 7;
+            modGain.gain.setValueAtTime(vel * 60, t);
+            modGain.gain.exponentialRampToValueAtTime(vel * 4, t + 0.45);
+            modGain.gain.linearRampToValueAtTime(0.0001, t + dur + 0.3);
+            mod.connect(modGain); modGain.connect(osc.frequency);
+            g.gain.setValueAtTime(vel * 0.7, t);
+            g.gain.exponentialRampToValueAtTime(vel * 0.22, t + 0.5);
+            g.gain.setValueAtTime(vel * 0.22, t + dur - 0.08);
+            g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.2);
+            osc.connect(g); g.connect(masterGain);
+            mod.start(t); osc.start(t);
+            mod.stop(t + dur + 0.35); osc.stop(t + dur + 0.35);
         });
     }
 
@@ -163,6 +205,29 @@ const SongArranger = (function () {
         });
     }
 
+    function guitarMuted(notes, t, dur, vel) {
+        // Pluck / muted guitar — bright attack with fast exponential decay
+        notes.forEach((midi, i) => {
+            const f  = midiToFreq(midi);
+            const td = t + i * 0.012;
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            const flt  = ctx.createBiquadFilter();
+            const g    = ctx.createGain();
+            osc1.type = 'sawtooth'; osc1.frequency.value = f;
+            osc2.type = 'square';   osc2.frequency.value = f * 2;
+            flt.type = 'lowpass';
+            flt.frequency.setValueAtTime(f * 14, td);
+            flt.frequency.exponentialRampToValueAtTime(f * 2.5, td + 0.08);
+            flt.Q.value = 1.2;
+            g.gain.setValueAtTime(vel * 0.85, td);
+            g.gain.exponentialRampToValueAtTime(0.0001, td + Math.min(0.35, dur));
+            osc1.connect(flt); osc2.connect(flt); flt.connect(g); g.connect(masterGain);
+            osc1.start(td); osc2.start(td);
+            osc1.stop(td + 0.45); osc2.stop(td + 0.45);
+        });
+    }
+
     function bass(root, t, dur, vel) {
         const f = midiToFreq(root);
         const beat = (60 / bpm);
@@ -182,6 +247,29 @@ const SongArranger = (function () {
         });
     }
 
+    function bassPunch(root, t, dur, vel) {
+        // Synth bass: square + filter envelope, walking pattern
+        const beat = 60 / bpm;
+        [[0, root],[2*beat, root + 7]].forEach(([offset, midi]) => {
+            if (offset >= dur) return;
+            const f   = midiToFreq(midi);
+            const osc = ctx.createOscillator();
+            const flt = ctx.createBiquadFilter();
+            const g   = ctx.createGain();
+            osc.type = 'square'; osc.frequency.value = f;
+            flt.type = 'lowpass';
+            flt.frequency.setValueAtTime(f * 10, t + offset);
+            flt.frequency.exponentialRampToValueAtTime(f * 1.8, t + offset + 0.09);
+            flt.Q.value = 2.5;
+            g.gain.setValueAtTime(vel * 0.9, t + offset);
+            g.gain.exponentialRampToValueAtTime(vel * 0.15, t + offset + 0.18);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + offset + Math.min(beat * 1.5, dur - offset));
+            osc.connect(flt); flt.connect(g); g.connect(masterGain);
+            const end = t + offset + Math.min(beat * 1.5, dur - offset) + 0.05;
+            osc.start(t + offset); osc.stop(end);
+        });
+    }
+
     function pad(notes, t, dur, vel) {
         notes.slice(0, 4).forEach(midi => {
             [0.993, 1.000, 1.007].forEach(detune => {
@@ -196,6 +284,25 @@ const SongArranger = (function () {
                 g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.6);
                 osc.connect(flt); flt.connect(g); g.connect(masterGain);
                 osc.start(t); osc.stop(t + dur + 0.8);
+            });
+        });
+    }
+
+    function organKeys(notes, t, dur, vel) {
+        // Hammond-style additive organ — no attack/release envelope (just click)
+        notes.slice(0, 4).forEach(midi => {
+            const f = midiToFreq(midi);
+            [1, 2, 3, 4, 5, 6, 8].forEach((harm, i) => {
+                const amps = [0.8, 0.65, 0.5, 0.32, 0.18, 0.12, 0.08];
+                const osc = ctx.createOscillator();
+                const g   = ctx.createGain();
+                osc.type = 'sine'; osc.frequency.value = f * harm;
+                g.gain.setValueAtTime(0, t);
+                g.gain.linearRampToValueAtTime(vel * amps[i] * 0.28, t + 0.005);
+                g.gain.setValueAtTime(vel * amps[i] * 0.28, t + dur - 0.008);
+                g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.015);
+                osc.connect(g); g.connect(masterGain);
+                osc.start(t); osc.stop(t + dur + 0.04);
             });
         });
     }
@@ -219,32 +326,76 @@ const SongArranger = (function () {
         });
     }
 
+    function pizzicato(notes, t, dur, vel) {
+        // Short, plucked strings
+        notes.forEach(midi => {
+            const f = midiToFreq(midi);
+            const osc = ctx.createOscillator();
+            const flt = ctx.createBiquadFilter();
+            const g   = ctx.createGain();
+            osc.type = 'sawtooth'; osc.frequency.value = f;
+            flt.type = 'lowpass'; flt.frequency.value = f * 3.5; flt.Q.value = 0.7;
+            const pizzDur = Math.min(0.08 + 55 / f, 0.45);
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(vel * 0.65, t + 0.005);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + pizzDur);
+            osc.connect(flt); flt.connect(g); g.connect(masterGain);
+            osc.start(t); osc.stop(t + pizzDur + 0.06);
+        });
+    }
+
+    // ── Voice dispatcher (routes to synthesis fn based on voice id) ──
+
+    function callChordVoice(instrId, notes, t, dur, vel, voice) {
+        switch (instrId) {
+            case 'piano':   (voice === 'rhodes' ? rhodesKeys : piano)(notes, t, dur, vel); break;
+            case 'guitar':  (voice === 'pluck'  ? guitarMuted : guitar)(notes, t, dur, vel); break;
+            case 'pad':     (voice === 'organ'  ? organKeys  : pad)(notes, t, dur, vel); break;
+            case 'strings': (voice === 'pizz'   ? pizzicato  : strings)(notes, t, dur, vel); break;
+        }
+    }
+
     // Single-note playback for piano roll patterns
-    function playSingleNote(instrId, pitch, t, dur, vel) {
+    function playSingleNote(instrId, pitch, t, dur, vel, voice) {
         if (!ctx) return;
         switch (instrId) {
-            case 'piano':   piano([pitch],   t, dur, vel); break;
-            case 'guitar':  guitar([pitch],  t, dur, vel); break;
-            case 'pad':     pad([pitch],     t, dur, vel); break;
-            case 'strings': strings([pitch], t, dur, vel); break;
+            case 'piano':   callChordVoice('piano',   [pitch], t, dur, vel, voice); break;
+            case 'guitar':  callChordVoice('guitar',  [pitch], t, dur, vel, voice); break;
+            case 'pad':     callChordVoice('pad',     [pitch], t, dur, vel, voice); break;
+            case 'strings': callChordVoice('strings', [pitch], t, dur, vel, voice); break;
             case 'bass': {
-                const f   = midiToFreq(pitch);
-                const osc = ctx.createOscillator();
-                const sub = ctx.createOscillator();
-                const g   = ctx.createGain();
-                osc.type = 'triangle'; osc.frequency.value = f;
-                sub.type = 'sine';     sub.frequency.value = f * 0.5;
-                g.gain.setValueAtTime(vel, t);
-                g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.04);
-                osc.connect(g); sub.connect(g); g.connect(masterGain);
-                osc.start(t); osc.stop(t + dur + 0.08);
-                sub.start(t); sub.stop(t + dur + 0.08);
+                const f = midiToFreq(pitch);
+                if (voice === 'punch') {
+                    const osc = ctx.createOscillator();
+                    const flt = ctx.createBiquadFilter();
+                    const g   = ctx.createGain();
+                    osc.type = 'square'; osc.frequency.value = f;
+                    flt.type = 'lowpass';
+                    flt.frequency.setValueAtTime(f * 10, t);
+                    flt.frequency.exponentialRampToValueAtTime(f * 1.8, t + 0.08);
+                    flt.Q.value = 2.5;
+                    g.gain.setValueAtTime(vel, t);
+                    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.04);
+                    osc.connect(flt); flt.connect(g); g.connect(masterGain);
+                    osc.start(t); osc.stop(t + dur + 0.08);
+                } else {
+                    const osc = ctx.createOscillator();
+                    const sub = ctx.createOscillator();
+                    const g   = ctx.createGain();
+                    osc.type = 'triangle'; osc.frequency.value = f;
+                    sub.type = 'sine';     sub.frequency.value = f * 0.5;
+                    g.gain.setValueAtTime(vel, t);
+                    g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.04);
+                    osc.connect(g); sub.connect(g); g.connect(masterGain);
+                    osc.start(t); osc.stop(t + dur + 0.08);
+                    sub.start(t); sub.stop(t + dur + 0.08);
+                }
                 break;
             }
         }
     }
 
-    // ── Note pitch/range helpers ──────────────────────────────────────
+    // ── Note pitch / range helpers ────────────────────────────────────
 
     function adjustToRange(pitch, cfg) {
         while (pitch < cfg.minPitch) pitch += 12;
@@ -252,18 +403,35 @@ const SongArranger = (function () {
         return (pitch >= cfg.minPitch && pitch <= cfg.maxPitch) ? pitch : null;
     }
 
-    // ── SA Piano Roll pixel helpers ───────────────────────────────────
+    // ── Theremin sync helpers ─────────────────────────────────────────
 
-    // Pixel X of the left edge of a given step within a step-area
-    // (14px per cell, 4px bar-separator every 16 steps)
-    function stepToX(step) {
-        return step * 14 + Math.floor(step / 16) * 4;
+    function chordRootToMidi(root) {
+        const idx = NOTE_NAMES.indexOf(root);
+        return idx !== -1 ? 60 + idx : 60; // C4 baseline
     }
 
-    // Pixel width of a note block starting at startStep with dur steps
+    function updateThereminScale(chord) {
+        if (!chord || !thereminSync || typeof AudioEngine === 'undefined') return;
+        if (thereminSyncMode === 'chord') {
+            // Snap to chord tones only (e.g. Am → pitch classes 9, 0, 4)
+            const rootIdx  = NOTE_NAMES.indexOf(chord.root);
+            const intervals = CHORD_INTERVALS[chord.type] || CHORD_INTERVALS['maj'];
+            const pitchClasses = intervals.map(i => (rootIdx + i) % 12);
+            AudioEngine.setCustomScaleNotes(pitchClasses);
+            AudioEngine.setRootNote(chordRootToMidi(chord.root));
+        } else {
+            // 'scale' mode: map chord quality to nearest named scale
+            AudioEngine.setScale(CHORD_TO_SCALE[chord.type] || 'major');
+            AudioEngine.setRootNote(chordRootToMidi(chord.root));
+        }
+    }
+
+    // ── SA Piano Roll pixel helpers ───────────────────────────────────
+
+    function stepToX(step) { return step * 14 + Math.floor(step / 16) * 4; }
+
     function durToWidth(startStep, dur) {
-        const w = stepToX(startStep + dur) - stepToX(startStep) - 2;
-        return Math.max(10, w);
+        return Math.max(10, stepToX(startStep + dur) - stepToX(startStep) - 2);
     }
 
     function renderNoteBlock(note, color) {
@@ -315,34 +483,35 @@ const SongArranger = (function () {
         function tryPattern(instrId, defaultFn) {
             const instr = inst[instrId];
             if (!instr?.enabled) return;
-            const pat = instr.notePattern;
+            const pat   = instr.notePattern;
+            const voice = instr.voice || 'default';
             if (pat?.active && pat.steps?.length) {
                 pat.steps.forEach(({ pitch, step, dur: noteDur, vel: nv }) => {
                     if (step >= stepStart && step < stepStart + 16) {
-                        const noteLenSec = (noteDur || 1) * stepDur;
                         playSingleNote(instrId, pitch,
                             t + (step - stepStart) * stepDur,
-                            noteLenSec * 0.96,
-                            (nv ?? 1.0) * (instr.vel ?? 0.7));
+                            (noteDur || 1) * stepDur * 0.96,
+                            (nv ?? 1.0) * (instr.vel ?? 0.7),
+                            voice);
                     }
                 });
             } else {
-                defaultFn();
+                defaultFn(voice);
             }
         }
 
         const rootMidi = 5 * 12 + NOTE_NAMES.indexOf(chord.root);
-        tryPattern('piano',   () => piano(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.piano?.vel   ?? 0.65));
-        tryPattern('guitar',  () => guitar(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.guitar?.vel  ?? 0.55));
-        tryPattern('bass',    () => bass(rootMidi - 24, t, barDur, inst.bass?.vel    ?? 0.75));
-        tryPattern('pad',     () => pad(getChordNotes(chord.root, chord.type, 3), t, barDur, inst.pad?.vel     ?? 0.45));
-        tryPattern('strings', () => strings(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.strings?.vel ?? 0.35));
+        tryPattern('piano',   (v) => callChordVoice('piano',   getChordNotes(chord.root, chord.type, 4), t, barDur, inst.piano?.vel   ?? 0.65, v));
+        tryPattern('guitar',  (v) => callChordVoice('guitar',  getChordNotes(chord.root, chord.type, 4), t, barDur, inst.guitar?.vel  ?? 0.55, v));
+        tryPattern('bass',    (v) => (v === 'punch' ? bassPunch : bass)(rootMidi - 24, t, barDur, inst.bass?.vel ?? 0.75));
+        tryPattern('pad',     (v) => callChordVoice('pad',     getChordNotes(chord.root, chord.type, 3), t, barDur, inst.pad?.vel     ?? 0.45, v));
+        tryPattern('strings', (v) => callChordVoice('strings', getChordNotes(chord.root, chord.type, 4), t, barDur, inst.strings?.vel ?? 0.35, v));
 
-        // ── Drum Machine integration (POC) ─────────────────────────────
-        // If the section links a drum pattern, schedule it via DrumMachine module
+        // ── Drum Machine integration ──────────────────────────────────
         if (sec.drumPatternId && typeof DrumMachine !== 'undefined' && DrumMachine.schedulePatternBar) {
-            const secondsFromNow = t - ctx.currentTime;
-            DrumMachine.schedulePatternBar(sec.drumPatternId, secondsFromNow, bpm);
+            // Use performance.now() as shared wall-clock reference across both AudioContexts
+            const wallClockMs = performance.now() + (t - ctx.currentTime) * 1000;
+            DrumMachine.schedulePatternBar(sec.drumPatternId, wallClockMs, bpm);
         }
     }
 
@@ -360,7 +529,13 @@ const SongArranger = (function () {
 
                 const delay = Math.max(0, (nextBarTime - ctx.currentTime) * 1000);
                 const ai = currentArrIdx, bi = currentBarInSec;
-                setTimeout(() => { if (isPlaying) updatePlayPosition(ai, bi); }, delay);
+                const snapChord = chord; // capture for closure
+                setTimeout(() => {
+                    if (isPlaying) {
+                        updatePlayPosition(ai, bi);
+                        updateThereminScale(snapChord); // sync theremin to current chord
+                    }
+                }, delay);
             }
 
             nextBarTime += getBarDuration();
@@ -380,6 +555,8 @@ const SongArranger = (function () {
         if (isPlaying || arrangement.length === 0) return;
         initAudio();
         if (ctx.state === 'suspended') ctx.resume();
+        // Ensure DM audio is ready for linked patterns
+        if (typeof DrumMachine !== 'undefined' && DrumMachine.ensureAudio) DrumMachine.ensureAudio();
         clearTimeout(killRestoreTimer);
         if (killGain) {
             killGain.gain.cancelScheduledValues(ctx.currentTime);
@@ -440,13 +617,13 @@ const SongArranger = (function () {
             id, name: name || ('Section ' + secCounter),
             color: color || SECTION_COLORS[(secCounter - 1) % SECTION_COLORS.length],
             progressionId: progId,
-            drumPatternId: null,   // linked DM pattern (null = none)
+            drumPatternId: null,
             instruments: {
-                piano:   { enabled: true,  vel: 0.65, notePattern: null },
-                guitar:  { enabled: false, vel: 0.55, notePattern: null },
-                bass:    { enabled: true,  vel: 0.75, notePattern: null },
-                pad:     { enabled: false, vel: 0.45, notePattern: null },
-                strings: { enabled: false, vel: 0.35, notePattern: null },
+                piano:   { enabled: true,  vel: 0.65, notePattern: null, voice: 'piano'   },
+                guitar:  { enabled: false, vel: 0.55, notePattern: null, voice: 'guitar'  },
+                bass:    { enabled: true,  vel: 0.75, notePattern: null, voice: 'bass'    },
+                pad:     { enabled: false, vel: 0.45, notePattern: null, voice: 'pad'     },
+                strings: { enabled: false, vel: 0.35, notePattern: null, voice: 'strings' },
             }
         };
         return id;
@@ -499,10 +676,10 @@ const SongArranger = (function () {
                 const defs = ['piano','guitar','bass','pad','strings'];
                 defs.forEach(instrId => {
                     if (!sec.instruments[instrId]) {
-                        sec.instruments[instrId] = { enabled: false, vel: 0.5, notePattern: null };
+                        sec.instruments[instrId] = { enabled: false, vel: 0.5, notePattern: null, voice: instrId };
                     } else {
                         if (!('notePattern' in sec.instruments[instrId])) sec.instruments[instrId].notePattern = null;
-                        // Migrate old notes without dur field
+                        if (!('voice'       in sec.instruments[instrId])) sec.instruments[instrId].voice       = instrId;
                         const steps = sec.instruments[instrId].notePattern?.steps;
                         if (steps) steps.forEach(n => { if (!('dur' in n)) n.dur = 1; });
                     }
@@ -642,10 +819,12 @@ const SongArranger = (function () {
         ];
 
         instrDefs.forEach(({ id, label, color }) => {
-            const instr = sec.instruments[id] || (sec.instruments[id] = { enabled: false, vel: 0.5, notePattern: null });
+            const instr = sec.instruments[id] ||
+                (sec.instruments[id] = { enabled: false, vel: 0.5, notePattern: null, voice: id });
             const wrap = document.createElement('div');
             wrap.className = 'sa-instr-item';
 
+            // ── Top row: enable checkbox + piano roll button ──────────
             const topRow = document.createElement('div');
             topRow.className = 'sa-instr-top-row';
 
@@ -670,6 +849,26 @@ const SongArranger = (function () {
 
             topRow.appendChild(toggle); topRow.appendChild(prBtn);
 
+            // ── Voice selector ────────────────────────────────────────
+            const vcfg = SA_INSTR_CONFIG[id];
+            const voiceRow = document.createElement('div');
+            voiceRow.className = 'sa-voice-row';
+            vcfg.voices.forEach(v => {
+                const btn = document.createElement('button');
+                const isActive = (instr.voice || vcfg.voices[0].id) === v.id;
+                btn.className = 'sa-voice-btn' + (isActive ? ' active' : '');
+                btn.textContent = v.label;
+                btn.style.setProperty('--vc', color);
+                btn.title = v.label + ' voice';
+                btn.addEventListener('click', () => {
+                    instr.voice = v.id;
+                    voiceRow.querySelectorAll('.sa-voice-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    saveState();
+                });
+                voiceRow.appendChild(btn);
+            });
+
             const vol = document.createElement('input');
             vol.type = 'range'; vol.min = 0; vol.max = 1; vol.step = 0.05;
             vol.value = instr.vel ?? 0.5;
@@ -677,13 +876,13 @@ const SongArranger = (function () {
             vol.title = label + ' volume';
             vol.addEventListener('input', () => { instr.vel = parseFloat(vol.value); saveState(); });
 
-            wrap.appendChild(topRow); wrap.appendChild(vol);
+            wrap.appendChild(topRow); wrap.appendChild(voiceRow); wrap.appendChild(vol);
             row.appendChild(wrap);
         });
 
         // ── Drum Machine link ─────────────────────────────────────────
         const dmPatterns = (typeof DrumMachine !== 'undefined' && DrumMachine.getPatternList)
-            ? DrugMachineListSafe() : [];
+            ? getDMPatternsSafe() : [];
 
         const drumRow = document.createElement('div');
         drumRow.className = 'sa-drum-link-row';
@@ -713,7 +912,7 @@ const SongArranger = (function () {
         row.appendChild(drumRow);
     }
 
-    function DrugMachineListSafe() {
+    function getDMPatternsSafe() {
         try { return DrumMachine.getPatternList() || []; } catch(e) { return []; }
     }
 
@@ -740,7 +939,6 @@ const SongArranger = (function () {
             barsEl.className = 'sa-arr-block-bars';
             barsEl.textContent = bars + ' bar' + (bars !== 1 ? 's' : '');
 
-            // Show drum indicator if pattern linked
             if (sec.drumPatternId) {
                 const di = document.createElement('span');
                 di.className = 'sa-arr-drum-indicator';
@@ -788,8 +986,8 @@ const SongArranger = (function () {
         pickerChordIdx = chordIdx;
         const picker = document.getElementById('sa-chord-picker');
         if (!picker || !currentSectionId) return;
-        const sec  = sections[currentSectionId];
-        const prog = progressions[sec.progressionId];
+        const sec   = sections[currentSectionId];
+        const prog  = progressions[sec.progressionId];
         const chord = prog.chords[chordIdx];
 
         const rootsEl = document.getElementById('sa-picker-roots');
@@ -868,11 +1066,10 @@ const SongArranger = (function () {
         if (!sec) return;
         const cfg  = SA_INSTR_CONFIG[instrId];
         if (!cfg) return;
-        const prog = progressions[sec.progressionId];
+        const prog  = progressions[sec.progressionId];
         const instr = sec.instruments[instrId] || {};
         const pat   = instr.notePattern;
 
-        // Update header
         const dot    = document.getElementById('sa-pr-dot');
         const nameEl = document.getElementById('sa-pr-name');
         const toggle = document.getElementById('sa-pr-mode-toggle');
@@ -880,7 +1077,6 @@ const SongArranger = (function () {
         if (nameEl) nameEl.textContent   = cfg.label;
         if (toggle) toggle.checked       = pat?.active ?? false;
 
-        // Build notes lookup by pitch
         const notesByPitch = {};
         (pat?.steps || []).forEach(n => {
             (notesByPitch[n.pitch] = notesByPitch[n.pitch] || []).push(n);
@@ -890,7 +1086,7 @@ const SongArranger = (function () {
         if (!grid) return;
         grid.innerHTML = '';
 
-        // ── Header row: chord names ──────────────────────────────────
+        // Header row
         const hdr = document.createElement('div');
         hdr.className = 'sa-pr-row sa-pr-header-row';
         const hKey = document.createElement('div');
@@ -903,9 +1099,7 @@ const SongArranger = (function () {
         let globalHdrStep = 0;
         (prog?.chords || []).forEach((chord) => {
             for (let b = 0; b < (chord.bars || 1); b++) {
-                if (globalHdrStep > 0) {
-                    const sep = document.createElement('div'); sep.className = 'sa-pr-bar-sep'; hdrStepArea.appendChild(sep);
-                }
+                if (globalHdrStep > 0) { const sep = document.createElement('div'); sep.className = 'sa-pr-bar-sep'; hdrStepArea.appendChild(sep); }
                 for (let s = 0; s < 16; s++) {
                     const cell = document.createElement('div');
                     cell.className = 'sa-pr-hdr-cell';
@@ -919,7 +1113,7 @@ const SongArranger = (function () {
         hdr.appendChild(hdrStepArea);
         grid.appendChild(hdr);
 
-        // ── Pitch rows ───────────────────────────────────────────────
+        // Pitch rows
         for (let p = cfg.maxPitch; p >= cfg.minPitch; p--) {
             const isBlack  = SA_BLACK_KEYS.has(p % 12);
             const isC      = (p % 12 === 0);
@@ -935,16 +1129,13 @@ const SongArranger = (function () {
             keyLabel.textContent = isC ? noteName + octave : (isBlack ? '' : noteName);
             row.appendChild(keyLabel);
 
-            // Step area: click-target cells + absolutely-positioned note blocks
             const stepArea = document.createElement('div');
             stepArea.className = 'sa-pr-step-area';
 
             let globalStep = 0;
             (prog?.chords || []).forEach((chord) => {
                 for (let b = 0; b < (chord.bars || 1); b++) {
-                    if (globalStep > 0) {
-                        const sep = document.createElement('div'); sep.className = 'sa-pr-bar-sep'; stepArea.appendChild(sep);
-                    }
+                    if (globalStep > 0) { const sep = document.createElement('div'); sep.className = 'sa-pr-bar-sep'; stepArea.appendChild(sep); }
                     for (let s = 0; s < 16; s++) {
                         const cell = document.createElement('div');
                         cell.className = 'sa-pr-cell' + (s % 4 === 0 ? ' sa-pr-beat-start' : '');
@@ -955,28 +1146,21 @@ const SongArranger = (function () {
                 }
             });
 
-            // Render note blocks on top of the cells
-            (notesByPitch[p] || []).forEach(note => {
-                stepArea.appendChild(renderNoteBlock(note, cfg.color));
-            });
-
+            (notesByPitch[p] || []).forEach(note => stepArea.appendChild(renderNoteBlock(note, cfg.color)));
             row.appendChild(stepArea);
             grid.appendChild(row);
         }
     }
 
-    // Rebuild just the note blocks for a given pitch row (avoids full re-render)
     function refreshNoteBlocksForPitch(pitch) {
         const sec = sections[saPR.secId];
         if (!sec) return;
-        const cfg = SA_INSTR_CONFIG[saPR.instrId];
+        const cfg   = SA_INSTR_CONFIG[saPR.instrId];
         if (!cfg) return;
-        const instr = sec.instruments[saPR.instrId];
+        const instr    = sec.instruments[saPR.instrId];
         const stepArea = document.querySelector(`#sa-pr-grid .sa-pr-row[data-pitch="${pitch}"] .sa-pr-step-area`);
         if (!stepArea) return;
-        // Remove existing note blocks
         stepArea.querySelectorAll('.sa-pr-note-block').forEach(el => el.remove());
-        // Re-add from data
         (instr.notePattern?.steps || [])
             .filter(n => n.pitch === pitch)
             .forEach(note => stepArea.appendChild(renderNoteBlock(note, cfg.color)));
@@ -996,14 +1180,14 @@ const SongArranger = (function () {
         } else if (!targetActive && idx !== -1) {
             steps.splice(idx, 1);
         } else {
-            return; // no change
+            return;
         }
 
         refreshNoteBlocksForPitch(pitch);
         saveState();
     }
 
-    // ── Fill from chords ──────────────────────────────────────────────
+    // ── Fill from Chords ──────────────────────────────────────────────
 
     function fillSAFromChord(instrId) {
         const sec = sections[saPR.secId];
@@ -1043,7 +1227,6 @@ const SongArranger = (function () {
             const bars  = chord.bars || 1;
             let notes;
             if (instrId === 'bass') {
-                // Root only in bass range
                 const root = adjRange(NOTE_NAMES.indexOf(chord.root) + 3 * 12);
                 notes = root !== null ? [root] : [];
             } else {
@@ -1058,116 +1241,81 @@ const SongArranger = (function () {
                     case 'block':
                         notes.forEach(p => addNote(p, bs, 16, 0.82 + Math.random() * 0.1));
                         break;
-
                     case 'arp-up':
                         notes.forEach((p, i) => addNote(p, bs + i * 2, 2, 0.75 + (i === 0 ? 0.12 : 0) + Math.random() * 0.08));
-                        // Repeat from top back through if room
                         for (let s = notes.length * 2; s + 2 <= 16; s += 2) {
-                            const noteIdx = Math.floor(s / 2) % notes.length;
                             if (Math.random() < 0.6 + color * 0.3)
-                                addNote(notes[noteIdx], bs + s, 2, 0.6 + Math.random() * 0.2);
+                                addNote(notes[Math.floor(s/2) % notes.length], bs + s, 2, 0.6 + Math.random() * 0.2);
                         }
                         break;
-
                     case 'arp-down': {
                         const rev = [...notes].reverse();
                         rev.forEach((p, i) => addNote(p, bs + i * 2, 2, 0.75 + (i === 0 ? 0.12 : 0) + Math.random() * 0.08));
                         for (let s = rev.length * 2; s + 2 <= 16; s += 2) {
-                            const noteIdx = Math.floor(s / 2) % rev.length;
                             if (Math.random() < 0.6 + color * 0.3)
-                                addNote(rev[noteIdx], bs + s, 2, 0.6 + Math.random() * 0.2);
+                                addNote(rev[Math.floor(s/2) % rev.length], bs + s, 2, 0.6 + Math.random() * 0.2);
                         }
                         break;
                     }
-
-                    case 'sparse': {
-                        // Root on beat 1, maybe 5th on beat 3
+                    case 'sparse':
                         addNote(notes[0], bs, 8, 0.85);
                         if (notes.length > 1 && Math.random() < 0.5 + color * 0.3)
                             addNote(notes[1], bs + 8, 8, 0.7 + Math.random() * 0.15);
                         break;
-                    }
-
                     case 'rhythm': {
-                        // Syncopated: offbeats, ghost notes, short durations
                         const RHYTHM = [0, 3, 6, 10, 12, 14];
-                        RHYTHM.forEach((rs, i) => {
-                            if (Math.random() < 0.7 + color * 0.25) {
-                                const p = notes[Math.floor(Math.random() * notes.length)];
-                                const d = 1 + Math.floor(Math.random() * 3);
-                                addNote(p, bs + rs, d, 0.6 + Math.random() * 0.35);
-                            }
+                        RHYTHM.forEach((rs) => {
+                            if (Math.random() < 0.7 + color * 0.25)
+                                addNote(notes[Math.floor(Math.random() * notes.length)], bs + rs, 1 + Math.floor(Math.random() * 3), 0.6 + Math.random() * 0.35);
                         });
                         break;
                     }
                 }
 
-                // ── Color: passing tones ─────────────────────────────
                 if (color > 0.25 && style !== 'block') {
-                    // Approach note into next chord (last 2 steps of bar)
-                    const nextCi = (ci + 1) % prog.chords.length;
-                    const nextChord = prog.chords[nextCi];
+                    const nextChord = prog.chords[(ci + 1) % prog.chords.length];
                     const nextNotes = instrId === 'bass'
                         ? ([adjRange(NOTE_NAMES.indexOf(nextChord.root) + 3 * 12)].filter(n => n !== null))
                         : getNotesInRange(nextChord, oct);
-
                     if (b === bars - 1 && nextNotes.length > 0 && notes.length > 0 && Math.random() < color) {
-                        // Scale approach note: diatonic step below the target
                         const target = nextNotes[0];
                         let approach = target - 2;
-                        // Snap to diatonic if possible
                         const semitone = (target % 12 - rootIdx + 12) % 12;
                         if (MAJOR_SCALE_INT.includes((semitone - 2 + 12) % 12)) approach = target - 2;
                         else if (MAJOR_SCALE_INT.includes((semitone - 1 + 12) % 12)) approach = target - 1;
                         const adj = adjRange(approach);
-                        if (adj !== null && adj !== notes[0]) {
-                            addNote(adj, bs + 14, 1, 0.45 + Math.random() * 0.15);
-                        }
+                        if (adj !== null && adj !== notes[0]) addNote(adj, bs + 14, 1, 0.45 + Math.random() * 0.15);
                     }
                 }
 
-                // ── Color: 7ths and 9ths ─────────────────────────────
                 if (color > 0.55) {
                     const intervals = CHORD_INTERVALS[chord.type] || [];
                     const rootMidi  = NOTE_NAMES.indexOf(chord.root);
                     const baseOct   = Math.floor((notes[0] || cfg.minPitch) / 12);
-
-                    // 7th
                     const seventhInt = intervals.find(i => i >= 9 && i <= 11);
                     if (seventhInt !== undefined && Math.random() < color - 0.3) {
                         const sp = adjRange(baseOct * 12 + rootMidi + seventhInt);
-                        if (sp !== null && !notes.includes(sp)) {
-                            const offset = style === 'block' ? 8 : (4 + Math.floor(Math.random() * 4));
-                            addNote(sp, bs + offset, style === 'block' ? 8 : 2, 0.4 + color * 0.25);
-                        }
+                        if (sp !== null && !notes.includes(sp))
+                            addNote(sp, bs + (style === 'block' ? 8 : 4 + Math.floor(Math.random() * 4)), style === 'block' ? 8 : 2, 0.4 + color * 0.25);
                     }
-
-                    // 9th
                     if (color > 0.75 && Math.random() < color - 0.55) {
                         const ninthPitch = adjRange(baseOct * 12 + rootMidi + 14);
-                        if (ninthPitch !== null && !notes.includes(ninthPitch)) {
+                        if (ninthPitch !== null && !notes.includes(ninthPitch))
                             addNote(ninthPitch, bs + 2, 2, 0.35 + color * 0.2);
-                        }
                     }
                 }
 
-                // ── Color: chromatic neighbor tones ──────────────────
-                if (color > 0.8 && style !== 'block' && style !== 'sparse') {
-                    if (Math.random() < (color - 0.8) * 3) {
-                        const base = notes[Math.floor(Math.random() * notes.length)];
-                        const neighbor = adjRange(base + (Math.random() < 0.5 ? 1 : -1));
-                        if (neighbor !== null && !notes.includes(neighbor)) {
-                            const rs = Math.floor(Math.random() * 12) + 1;
-                            addNote(neighbor, bs + rs, 1, 0.3 + Math.random() * 0.2);
-                        }
-                    }
+                if (color > 0.8 && style !== 'block' && style !== 'sparse' && Math.random() < (color - 0.8) * 3) {
+                    const base     = notes[Math.floor(Math.random() * notes.length)];
+                    const neighbor = adjRange(base + (Math.random() < 0.5 ? 1 : -1));
+                    if (neighbor !== null && !notes.includes(neighbor))
+                        addNote(neighbor, bs + Math.floor(Math.random() * 12) + 1, 1, 0.3 + Math.random() * 0.2);
                 }
             }
 
             barOffset += bars;
         });
 
-        // Sort by step
         instr.notePattern.steps.sort((a, b) => a.step - b.step || a.pitch - b.pitch);
 
         const toggle = document.getElementById('sa-pr-mode-toggle');
@@ -1269,6 +1417,18 @@ const SongArranger = (function () {
             this.value = '';
         });
 
+        // ── Theremin Sync ──────────────────────────────────────────────
+        const syncToggle = document.getElementById('sa-theremin-sync');
+        const syncMode   = document.getElementById('sa-theremin-sync-mode');
+        if (syncToggle) syncToggle.addEventListener('change', function () {
+            thereminSync = this.checked;
+            if (syncMode) syncMode.style.display = this.checked ? '' : 'none';
+        });
+        if (syncMode) {
+            syncMode.addEventListener('change', function () { thereminSyncMode = this.value; });
+            syncMode.style.display = 'none'; // hidden until sync is on
+        }
+
         // ── Close chord picker on outside click ───────────────────────
         document.addEventListener('click', function (e) {
             const picker = document.getElementById('sa-chord-picker');
@@ -1284,7 +1444,6 @@ const SongArranger = (function () {
             if (e.target === this) closeSAPianoRoll();
         });
 
-        // Duration picker buttons
         document.querySelectorAll('.sa-pr-dur-btn').forEach(btn => {
             btn.addEventListener('click', function () {
                 saCurrentNoteDur = parseInt(this.dataset.dur) || 1;
@@ -1307,7 +1466,6 @@ const SongArranger = (function () {
             if (saPR.instrId) fillSAFromChord(saPR.instrId);
         });
 
-        // Color slider live display
         document.getElementById('sa-pr-fill-color')?.addEventListener('input', function () {
             const el = document.getElementById('sa-pr-fill-color-val');
             if (el) el.textContent = this.value + '%';
@@ -1323,7 +1481,7 @@ const SongArranger = (function () {
             saveState();
         });
 
-        // ── Grid interactions: add/remove notes + note resize ─────────
+        // ── Grid interactions: add/remove notes + resize ──────────────
         const saPRGrid = document.getElementById('sa-pr-grid');
         if (saPRGrid) {
             saPRGrid.addEventListener('mousedown', function (e) {
@@ -1333,22 +1491,17 @@ const SongArranger = (function () {
                 const sa   = e.target.closest('.sa-pr-step-area');
 
                 if (rh && nb) {
-                    // Start note resize drag
                     noteResize.active   = true;
                     noteResize.noteEl   = nb;
                     noteResize.pitch    = parseInt(nb.dataset.pitch);
                     noteResize.step     = parseInt(nb.dataset.step);
                     noteResize.startX   = e.clientX;
                     noteResize.startDur = parseInt(nb.dataset.dur) || 1;
-                    e.preventDefault();
-                    e.stopPropagation();
+                    e.preventDefault(); e.stopPropagation();
                 } else if (nb) {
-                    // Click on note body → remove
                     toggleSAPRNote(parseInt(nb.dataset.pitch), parseInt(nb.dataset.step), false);
-                    e.preventDefault();
-                    e.stopPropagation();
+                    e.preventDefault(); e.stopPropagation();
                 } else if (cell && sa) {
-                    // Click on empty cell → add note
                     const rowEl = sa.closest('.sa-pr-row[data-pitch]');
                     if (!rowEl) return;
                     toggleSAPRNote(parseInt(rowEl.dataset.pitch), parseInt(cell.dataset.step), true);
@@ -1367,16 +1520,14 @@ const SongArranger = (function () {
                 const pitch = parseInt(rowEl.dataset.pitch);
                 const step  = parseInt(cell.dataset.step);
                 const instr = sections[saPR.secId]?.instruments[saPR.instrId];
-                const hasNote = instr?.notePattern?.steps.some(n => n.pitch === pitch && n.step === step);
-                if (!hasNote) toggleSAPRNote(pitch, step, true);
+                if (!instr?.notePattern?.steps.some(n => n.pitch === pitch && n.step === step))
+                    toggleSAPRNote(pitch, step, true);
             });
         }
 
-        // ── Note resize + drag-add mouseup (document-level) ──────────
         document.addEventListener('mousemove', function (e) {
             if (!noteResize.active) return;
-            const dx     = e.clientX - noteResize.startX;
-            const newDur = Math.max(1, noteResize.startDur + Math.round(dx / 14));
+            const newDur = Math.max(1, noteResize.startDur + Math.round((e.clientX - noteResize.startX) / 14));
             noteResize.noteEl.dataset.dur = newDur;
             noteResize.noteEl.style.width = durToWidth(noteResize.step, newDur) + 'px';
         });

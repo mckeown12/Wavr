@@ -29,6 +29,7 @@ const AudioEngine = (() => {
     // --- Scale definitions (pitch classes 0-11) ---
     const SCALES = {
         chromatic:    { name: 'Chromatic',        notes: [0,1,2,3,4,5,6,7,8,9,10,11] },
+        custom:       { name: 'Custom',            notes: [0,2,4,5,7,9,11] }, // set via setCustomScaleNotes
         major:        { name: 'Major',            notes: [0,2,4,5,7,9,11] },
         minor:        { name: 'Natural Minor',    notes: [0,2,3,5,7,8,10] },
         pentatonic:   { name: 'Pentatonic Major', notes: [0,2,4,7,9] },
@@ -559,6 +560,13 @@ const AudioEngine = (() => {
         currentScale = scale;
     }
 
+    // Set arbitrary pitch-class array (0–11) as the active scale.
+    // Called by Song Arranger to sync the theremin to the current chord.
+    function setCustomScaleNotes(notes) {
+        SCALES.custom.notes = notes.slice();
+        currentScale = 'custom';
+    }
+
     function setRootNote(midi) {
         rootNote = midi;
     }
@@ -712,7 +720,7 @@ const AudioEngine = (() => {
 
     return {
         updateVoice, stopVoice, stopAll, setMuted,
-        setMode, setScale, setRootNote, setGlideTime, setWaveform, setCustomWave,
+        setMode, setScale, setCustomScaleNotes, setRootNote, setGlideTime, setWaveform, setCustomWave,
         setFreqRange, getFreqRange, getScaleNotes,
         getScales, getFrequency, getNoteName,
         midiToFreq, freqToMidi,

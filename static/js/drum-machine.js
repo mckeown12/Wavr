@@ -1318,17 +1318,20 @@ const DrumMachine = (function () {
     // ── DM/SA Integration API ─────────────────────────────────────────
     //
     // schedulePatternBar: Called by SongArranger to play a drum pattern in sync.
-    // secondsFromNow: how far in the future (from this ctx's currentTime) to start the bar.
-    // bpmVal: the SA's current BPM (may differ from DM's own BPM setting).
+    // wallClockMs: performance.now() value when this bar should start — shared
+    //   wall-clock reference avoids skew between two separate AudioContexts.
+    // bpmVal: the SA's current BPM (used for 16th-note step duration).
     //
-    function schedulePatternBar(patternId, secondsFromNow, bpmVal) {
+    function schedulePatternBar(patternId, wallClockMs, bpmVal) {
         if (!patterns[patternId]) return;
-        if (!ctx) return; // DM audio context not yet initialized — user must interact with DM first
-        if (ctx.state === 'suspended') return;
-        const pat      = patterns[patternId];
-        const stepDur  = (60 / (bpmVal || bpm)) / 4; // 16th-note duration at given BPM
-        const startTime = ctx.currentTime + Math.max(0, secondsFromNow);
-        const stepsToPlay = Math.min(16, pat.steps['kick']?.length ?? 0);
+        if (!ctx) return;
+        if (ctx.state === 'suspended') { ctx.resume(); return; } // resumed next call
+        const pat          = patterns[patternId];
+        const stepDur      = (60 / (bpmVal || bpm)) / 4;
+        // Convert wall-clock time → this ctx's timeline
+        const secondsFromNow = (wallClockMs - performance.now()) / 1000;
+        const startTime    = ctx.currentTime + Math.max(0, secondsFromNow);
+        const stepsToPlay  = Math.min(16, pat.steps['kick']?.length ?? 0);
         INSTRUMENTS.forEach(instr => {
             if (mutedInstruments.has(instr.id)) return;
             const instrSteps = pat.steps[instr.id];
@@ -1347,7 +1350,13 @@ const DrumMachine = (function () {
         return Object.values(patterns).map(p => ({ id: p.id, name: p.name || p.id }));
     }
 
-    return { init, schedulePatternBar, getPatternList };
+    // Called by SA before playback starts so DM audio is ready
+    function ensureAudio() {
+        initAudio();
+        if (ctx && ctx.state === 'suspended') ctx.resume();
+    }
+
+    return { init, schedulePatternBar, getPatternList, ensureAudio };
 
 })();
 

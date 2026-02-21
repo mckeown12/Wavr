@@ -2450,6 +2450,53 @@ input[type="range"]::-moz-range-thumb {
 }
 .sa-pr-note-resize:hover { background: rgba(255,255,255,0.6); }
 
+/* ── Voice selector ──────────────────────────────────────────────── */
+.sa-voice-row {
+    display: flex;
+    gap: 3px;
+    margin: 2px 0;
+}
+
+.sa-voice-btn {
+    flex: 1;
+    padding: 0.2rem 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.58rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid #d8d0c8;
+    border-radius: 4px;
+    background: white;
+    color: #aaa;
+    transition: all 0.12s;
+    white-space: nowrap;
+    text-align: center;
+}
+.sa-voice-btn:hover  { border-color: var(--vc, #A29BFE); color: var(--vc, #A29BFE); }
+.sa-voice-btn.active { background: var(--vc, #A29BFE); border-color: var(--vc, #A29BFE); color: white; }
+
+/* ── Theremin sync label ──────────────────────────────────────────── */
+.sa-theremin-sync-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--gray);
+    cursor: pointer;
+    padding: 0.28rem 0.65rem;
+    border: 2px solid #e8e0d4;
+    border-radius: 8px;
+    transition: border-color 0.15s;
+    white-space: nowrap;
+}
+.sa-theremin-sync-label:hover { border-color: #A29BFE; }
+.sa-theremin-sync-label:has(input:checked) { border-color: #A29BFE; background: #f0ecff; color: var(--navy); }
+.sa-theremin-sync-label input { accent-color: #A29BFE; width: 13px; height: 13px; }
+
 /* Drum link row in instruments section */
 .sa-drum-link-row {
     display: flex;
