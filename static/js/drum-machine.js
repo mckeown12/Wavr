@@ -770,30 +770,47 @@ const DrumMachine = (function () {
     // Transport
     // ══════════════════════════════════════════════════════════════════
 
-    function play() {
-        if (isPlaying) return;
+    let playMode = null; // 'pattern' | 'timeline'
+
+    function updateTransportButtons() {
+        const patBtn  = document.getElementById('dm-play-pattern');
+        const tlBtn   = document.getElementById('dm-play-timeline');
+        const stopBtn = document.getElementById('dm-stop');
+        if (patBtn)  { patBtn.classList.toggle('dm-active', playMode === 'pattern'); }
+        if (tlBtn)   { tlBtn.classList.toggle('dm-active',  playMode === 'timeline'); }
+        if (stopBtn) { stopBtn.disabled = !isPlaying; }
+    }
+
+    function play(mode) {
+        if (mode === undefined) mode = playMode || 'pattern';
+        // Pressing the already-active button while playing: no-op
+        if (isPlaying && playMode === mode) return;
+        // Switching mode while playing: hard-stop then restart
+        if (isPlaying) {
+            isPlaying = false;
+            clearTimeout(schedulerTimer); schedulerTimer = null;
+            currentStep = 0; currentTimelineSlot = -1;
+            updateStepHighlight(-1);
+        }
         initAudio();
         if (ctx.state === 'suspended') ctx.resume();
+        playMode = mode;
+        timelineLoopActive = (mode === 'timeline');
         isPlaying = true; currentStep = 0; nextNoteTime = ctx.currentTime + 0.05;
         if (timelineLoopActive) {
             const first = timelineSlots.findIndex(s => s !== null);
             if (first !== -1) { currentTimelineSlot = first; currentPatternId = timelineSlots[first]; rebuildSequencerSteps(); updatePatternSelect(); }
         }
         scheduler(); renderTimeline();
-        const playBtn = document.getElementById('dm-play');
-        const stopBtn = document.getElementById('dm-stop');
-        if (playBtn) { playBtn.classList.add('dm-active'); playBtn.textContent = '▶ Playing'; }
-        if (stopBtn)  stopBtn.disabled = false;
+        updateTransportButtons();
     }
 
     function stop() {
-        isPlaying = false; clearTimeout(schedulerTimer); schedulerTimer = null;
+        isPlaying = false; playMode = null;
+        clearTimeout(schedulerTimer); schedulerTimer = null;
         currentStep = 0; currentTimelineSlot = -1;
         updateStepHighlight(-1); renderTimeline();
-        const playBtn = document.getElementById('dm-play');
-        const stopBtn = document.getElementById('dm-stop');
-        if (playBtn) { playBtn.classList.remove('dm-active'); playBtn.textContent = '▶ Play'; }
-        if (stopBtn)  stopBtn.disabled = true;
+        updateTransportButtons();
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -845,9 +862,9 @@ const DrumMachine = (function () {
         document.getElementById('dm-kit-select')?.addEventListener('change', function () { switchKit(this.value); });
 
         // ── Transport ─────────────────────────────────────────────────
-        const playBtn = document.getElementById('dm-play');
+        document.getElementById('dm-play-pattern')?.addEventListener('click', () => play('pattern'));
+        document.getElementById('dm-play-timeline')?.addEventListener('click', () => play('timeline'));
         const stopBtn = document.getElementById('dm-stop');
-        if (playBtn) playBtn.addEventListener('click', play);
         if (stopBtn) { stopBtn.addEventListener('click', stop); stopBtn.disabled = true; }
 
         document.addEventListener('keydown', function (e) {
@@ -855,7 +872,7 @@ const DrumMachine = (function () {
             const dmPanel = document.getElementById('drum-machine-panel');
             if (!dmPanel || dmPanel.style.display === 'none') return;
             e.preventDefault();
-            isPlaying ? stop() : play();
+            isPlaying ? stop() : play('pattern');
         });
 
         // ── Steps ─────────────────────────────────────────────────────

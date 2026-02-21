@@ -804,9 +804,26 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .dm-play-btn.dm-active {
-    background: #3bb8af;
-    border-color: #3bb8af;
     animation: pulse-record 1.2s ease-in-out infinite;
+}
+
+/* Timeline button — amber tint when idle, pulses amber when active */
+.dm-play-tl-btn {
+    background: white;
+    color: #FF9F43;
+    border: 2px solid #FF9F43;
+}
+
+.dm-play-tl-btn:hover {
+    background: #FF9F43;
+    color: white;
+    border-color: #FF9F43;
+}
+
+.dm-play-tl-btn.dm-active {
+    background: #FF9F43;
+    border-color: #FF9F43;
+    color: white;
 }
 
 .dm-stop-btn {

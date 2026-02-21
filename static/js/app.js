@@ -59,6 +59,7 @@
     // Track which voice IDs are currently active
     const activeVoices = new Set();
     const voicePrevY = new Map(); // voiceId -> previous Y position (0-1, 0=bottom, 1=top)
+    let panicCooldown = false;    // true for ~400ms after panic — blocks voice creation
     let multiHandEnabled = false;
     let fingerModeEnabled = false;
 
@@ -174,8 +175,11 @@
         AudioEngine.stopAll();
         activeVoices.clear();
         activeNoteVisuals.clear();
-        // Don't clear voicePrevY — keeping prior positions means the next hand-tracking
-        // frame won't see a "first detection" and immediately re-trigger the note.
+        voicePrevY.clear();
+        // Block voice creation for 400ms so the hand can't re-trigger while still in
+        // the play zone. After cooldown, the guard below still requires a crossing.
+        panicCooldown = true;
+        setTimeout(() => { panicCooldown = false; }, 400);
         resetHandDisplay(0);
         resetHandDisplay(1);
         // Visual feedback
@@ -663,9 +667,10 @@
             voicePrevY.set(id, yPos);
 
             if (isBelowThreshold) {
-                // Guard: after panic, activeVoices is cleared but voicePrevY is kept.
-                // If voice wasn't active, no crossing occurred, and we have prior position
-                // data, don't create a new voice — wait for a genuine threshold crossing.
+                // Panic cooldown: block all voice creation for 400ms after panic.
+                if (panicCooldown) continue;
+                // Secondary guard: after cooldown, still require a genuine threshold
+                // crossing before re-triggering (handles hand resting in play zone).
                 if (!wasBelowThreshold && !didCross && prevY !== undefined) continue;
 
                 // Hand is below threshold - play or continue note
@@ -779,7 +784,7 @@
                 voicePrevY.set(voiceId, yPos);
 
                 if (isBelowThreshold) {
-                    // Same panic-guard as hand mode
+                    if (panicCooldown) continue;
                     if (!wasBelowThreshold && !didCross && prevY !== undefined) continue;
 
                     // Finger is below threshold - play or continue note
