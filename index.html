@@ -581,6 +581,30 @@
         </div>
     </div>
 
+    <!-- SA Piano Roll Modal -->
+    <div id="sa-pr-modal" class="sa-pr-modal">
+        <div class="sa-pr-panel">
+            <div class="sa-pr-header">
+                <div class="dm-pr-title">
+                    <span id="sa-pr-dot" class="dm-pr-dot"></span>
+                    <span id="sa-pr-name" class="dm-pr-name"></span>
+                </div>
+                <div class="sa-pr-controls">
+                    <label class="sa-pr-mode-label">
+                        <input type="checkbox" id="sa-pr-mode-toggle"> Pattern Mode
+                    </label>
+                    <button id="sa-pr-fill" class="dm-btn dm-btn-outline">Fill from Chords</button>
+                    <button id="sa-pr-clear" class="dm-btn dm-btn-outline dm-btn-danger">Clear</button>
+                    <button id="sa-pr-close" class="dm-pr-close-btn">&#10005;</button>
+                </div>
+            </div>
+            <div class="sa-pr-grid-area">
+                <div id="sa-pr-grid" class="sa-pr-grid"></div>
+            </div>
+            <p class="dm-pr-hint">Click to add &nbsp;·&nbsp; click active to remove &nbsp;·&nbsp; drag to paint &nbsp;·&nbsp; enable Pattern Mode to override chord voicing</p>
+        </div>
+    </div>
+
     <!-- Chord picker popover -->
     <div id="sa-chord-picker" class="sa-chord-picker">
         <div class="sa-picker-label">Root</div>

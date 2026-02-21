@@ -95,7 +95,20 @@ const SongArranger = (function () {
     ];
     const SECTION_TYPES = ['Verse','Chorus','Bridge','Intro','Outro','Pre-Chorus','Break','Solo','Interlude'];
 
-    // ── State ─────────────────────────────────────────────────────────
+    // ── SA Piano Roll Config ──────────────────────────────────────────
+    const SA_INSTR_CONFIG = {
+        piano:   { label: 'Piano',   color: '#A29BFE', minPitch: 48, maxPitch: 71 }, // C3–B4
+        guitar:  { label: 'Guitar',  color: '#FF9F43', minPitch: 40, maxPitch: 63 }, // E2–D#4
+        bass:    { label: 'Bass',    color: '#FF6B6B', minPitch: 28, maxPitch: 51 }, // E1–D#3
+        pad:     { label: 'Pad',     color: '#45B7D1', minPitch: 36, maxPitch: 59 }, // C2–B3
+        strings: { label: 'Strings', color: '#55EFC4', minPitch: 48, maxPitch: 71 }, // C3–B4
+    };
+    const SA_BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
+
+    // ── SA Piano Roll State ───────────────────────────────────────────
+    const saPR = { instrId: null, secId: null, dragActive: false, dragState: null };
+
+    // ── App State ─────────────────────────────────────────────────────
     let bpm = 120;
     let rootKey = 'A';
     let progressions = {};   // id → { id, chords: [{root, type, bars}] }
@@ -103,20 +116,22 @@ const SongArranger = (function () {
     let arrangement = [];    // array of section IDs
     let progCounter = 0;
     let secCounter  = 0;
-    let currentSectionId = null;   // which section is open in editor
-    let pickerChordIdx   = null;   // which chord block the picker is editing
+    let currentSectionId = null;
+    let pickerChordIdx   = null;
 
     // ── Audio ─────────────────────────────────────────────────────────
     let ctx = null;
     let masterGain = null;
+    let killGain   = null;   // hard-mute switch for stop()
+    let killRestoreTimer = null;
     let isPlaying = false;
     let schedulerTimer = null;
     let nextBarTime = 0;
-    let currentArrIdx = 0;   // index in arrangement[]
-    let currentBarInSec = 0; // bar within current section's progression
+    let currentArrIdx = 0;
+    let currentBarInSec = 0;
 
     const LOOKAHEAD_MS   = 25;
-    const SCHEDULE_AHEAD = 0.2;  // schedule a bit further ahead for chords (heavier notes)
+    const SCHEDULE_AHEAD = 0.2;
 
     function initAudio() {
         if (ctx) return;
@@ -124,7 +139,6 @@ const SongArranger = (function () {
         masterGain = ctx.createGain();
         masterGain.gain.value = 0.65;
 
-        // Light compressor + limiter for the chord engine
         const comp = ctx.createDynamicsCompressor();
         comp.threshold.value = -18; comp.ratio.value = 3;
         comp.knee.value = 6; comp.attack.value = 0.005; comp.release.value = 0.25;
@@ -132,9 +146,14 @@ const SongArranger = (function () {
         lim.threshold.value = -2; lim.ratio.value = 20;
         lim.knee.value = 0; lim.attack.value = 0.001; lim.release.value = 0.08;
 
+        // Kill-switch gain: used to instantly silence scheduled notes on stop()
+        killGain = ctx.createGain();
+        killGain.gain.value = 1.0;
+
         masterGain.connect(comp);
         comp.connect(lim);
-        lim.connect(ctx.destination);
+        lim.connect(killGain);
+        killGain.connect(ctx.destination);
     }
 
     // ── Instrument Synthesis ──────────────────────────────────────────
@@ -160,7 +179,7 @@ const SongArranger = (function () {
     function guitar(notes, t, dur, vel) {
         notes.forEach((midi, i) => {
             const f  = midiToFreq(midi);
-            const td = t + i * 0.018; // strum delay
+            const td = t + i * 0.018;
             const osc = ctx.createOscillator();
             const flt = ctx.createBiquadFilter();
             const g   = ctx.createGain();
@@ -179,7 +198,6 @@ const SongArranger = (function () {
     function bass(root, t, dur, vel) {
         const f = midiToFreq(root);
         const beat = (60 / bpm);
-        // Root on beat 1, fifth on beat 3 (walking bass feel)
         [[0, f],[2*beat, midiToFreq(root + 7)]].forEach(([offset, freq]) => {
             if (offset >= dur) return;
             const osc  = ctx.createOscillator();
@@ -233,6 +251,31 @@ const SongArranger = (function () {
         });
     }
 
+    // ── Single-note playback for piano roll patterns ───────────────────
+    function playSingleNote(instrId, pitch, t, dur, vel) {
+        if (!ctx) return;
+        switch (instrId) {
+            case 'piano':   piano([pitch],   t, dur, vel); break;
+            case 'guitar':  guitar([pitch],  t, dur, vel); break;
+            case 'pad':     pad([pitch],     t, dur, vel); break;
+            case 'strings': strings([pitch], t, dur, vel); break;
+            case 'bass': {
+                const f   = midiToFreq(pitch);
+                const osc = ctx.createOscillator();
+                const sub = ctx.createOscillator();
+                const g   = ctx.createGain();
+                osc.type = 'triangle'; osc.frequency.value = f;
+                sub.type = 'sine';     sub.frequency.value = f * 0.5;
+                g.gain.setValueAtTime(vel, t);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.04);
+                osc.connect(g); sub.connect(g); g.connect(masterGain);
+                osc.start(t); osc.stop(t + dur + 0.08);
+                sub.start(t); sub.stop(t + dur + 0.08);
+                break;
+            }
+        }
+    }
+
     // ── Scheduling ────────────────────────────────────────────────────
 
     function getBarDuration() { return (60 / bpm) * 4; }
@@ -256,22 +299,44 @@ const SongArranger = (function () {
         return prog.chords[0];
     }
 
-    function scheduleChords(sec, chord, t, barDur) {
+    // barIdx = absolute bar position within the section's loop (currentBarInSec)
+    function scheduleChords(sec, chord, barIdx, t, barDur) {
         if (!chord) return;
-        const inst = sec.instruments || {};
-        const rootMidi = (5) * 12 + NOTE_NAMES.indexOf(chord.root); // octave 4 for piano
+        const inst      = sec.instruments || {};
+        const stepDur   = barDur / 16;
+        const totalBars = getTotalBarsInSection(sec);
+        const patBar    = barIdx % totalBars;   // position within the pattern loop
+        const stepStart = patBar * 16;          // first step index for this bar
 
-        if (inst.piano?.enabled)   piano(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.piano.vel ?? 0.65);
-        if (inst.guitar?.enabled)  guitar(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.guitar.vel ?? 0.55);
-        if (inst.bass?.enabled)    bass(rootMidi - 24, t, barDur, inst.bass.vel ?? 0.75);   // 2 octaves down
-        if (inst.pad?.enabled)     pad(getChordNotes(chord.root, chord.type, 3), t, barDur, inst.pad.vel ?? 0.45);
-        if (inst.strings?.enabled) strings(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.strings.vel ?? 0.35);
+        function tryPattern(instrId, defaultFn) {
+            const instr = inst[instrId];
+            if (!instr?.enabled) return;
+            const pat = instr.notePattern;
+            if (pat?.active && pat.steps?.length) {
+                pat.steps.forEach(({ pitch, step, vel: nv }) => {
+                    if (step >= stepStart && step < stepStart + 16) {
+                        playSingleNote(instrId, pitch,
+                            t + (step - stepStart) * stepDur,
+                            stepDur * 0.88,
+                            (nv ?? 1.0) * (instr.vel ?? 0.7));
+                    }
+                });
+            } else {
+                defaultFn();
+            }
+        }
+
+        const rootMidi = 5 * 12 + NOTE_NAMES.indexOf(chord.root);
+        tryPattern('piano',   () => piano(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.piano?.vel   ?? 0.65));
+        tryPattern('guitar',  () => guitar(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.guitar?.vel  ?? 0.55));
+        tryPattern('bass',    () => bass(rootMidi - 24, t, barDur, inst.bass?.vel    ?? 0.75));
+        tryPattern('pad',     () => pad(getChordNotes(chord.root, chord.type, 3), t, barDur, inst.pad?.vel     ?? 0.45));
+        tryPattern('strings', () => strings(getChordNotes(chord.root, chord.type, 4), t, barDur, inst.strings?.vel ?? 0.35));
     }
 
     function scheduler() {
         while (nextBarTime < ctx.currentTime + SCHEDULE_AHEAD) {
             if (currentArrIdx >= arrangement.length) {
-                // Loop arrangement
                 currentArrIdx = 0;
                 currentBarInSec = 0;
             }
@@ -279,9 +344,8 @@ const SongArranger = (function () {
             const sec   = sections[secId];
             if (sec) {
                 const chord = getChordAtBar(sec, currentBarInSec);
-                scheduleChords(sec, chord, nextBarTime, getBarDuration());
+                scheduleChords(sec, chord, currentBarInSec, nextBarTime, getBarDuration());
 
-                // Visual update
                 const delay = Math.max(0, (nextBarTime - ctx.currentTime) * 1000);
                 const ai = currentArrIdx, bi = currentBarInSec;
                 setTimeout(() => { if (isPlaying) updatePlayPosition(ai, bi); }, delay);
@@ -304,6 +368,12 @@ const SongArranger = (function () {
         if (isPlaying || arrangement.length === 0) return;
         initAudio();
         if (ctx.state === 'suspended') ctx.resume();
+        // Restore kill-switch immediately in case we're restarting quickly after stop
+        clearTimeout(killRestoreTimer);
+        if (killGain) {
+            killGain.gain.cancelScheduledValues(ctx.currentTime);
+            killGain.gain.setValueAtTime(1.0, ctx.currentTime);
+        }
         isPlaying = true;
         currentArrIdx = 0;
         currentBarInSec = 0;
@@ -316,6 +386,18 @@ const SongArranger = (function () {
         isPlaying = false;
         clearTimeout(schedulerTimer);
         schedulerTimer = null;
+        // Instantly silence all scheduled notes via kill-switch gain
+        clearTimeout(killRestoreTimer);
+        if (killGain && ctx) {
+            killGain.gain.cancelScheduledValues(ctx.currentTime);
+            killGain.gain.setValueAtTime(killGain.gain.value, ctx.currentTime);
+            killGain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+            killRestoreTimer = setTimeout(() => {
+                if (!isPlaying && killGain && ctx) {
+                    killGain.gain.setValueAtTime(1.0, ctx.currentTime);
+                }
+            }, 500);
+        }
         updatePlayPosition(-1, -1);
         updateTransport();
     }
@@ -351,11 +433,11 @@ const SongArranger = (function () {
             color: color || SECTION_COLORS[(secCounter - 1) % SECTION_COLORS.length],
             progressionId: progId,
             instruments: {
-                piano:   { enabled: true,  vel: 0.65 },
-                guitar:  { enabled: false, vel: 0.55 },
-                bass:    { enabled: true,  vel: 0.75 },
-                pad:     { enabled: false, vel: 0.45 },
-                strings: { enabled: false, vel: 0.35 },
+                piano:   { enabled: true,  vel: 0.65, notePattern: null },
+                guitar:  { enabled: false, vel: 0.55, notePattern: null },
+                bass:    { enabled: true,  vel: 0.75, notePattern: null },
+                pad:     { enabled: false, vel: 0.45, notePattern: null },
+                strings: { enabled: false, vel: 0.35, notePattern: null },
             }
         };
         return id;
@@ -402,7 +484,18 @@ const SongArranger = (function () {
             currentSectionId = d.currentSectionId || null;
             arrangement = d.arrangement || [];
             Object.assign(progressions, d.progressions || {});
-            Object.assign(sections, d.sections || {});
+            // Restore sections, ensuring notePattern is present on all instruments
+            Object.entries(d.sections || {}).forEach(([id, sec]) => {
+                sections[id] = sec;
+                const defs = ['piano','guitar','bass','pad','strings'];
+                defs.forEach(instrId => {
+                    if (!sec.instruments[instrId]) {
+                        sec.instruments[instrId] = { enabled: false, vel: 0.5, notePattern: null };
+                    } else if (!('notePattern' in sec.instruments[instrId])) {
+                        sec.instruments[instrId].notePattern = null;
+                    }
+                });
+            });
             return Object.keys(sections).length > 0;
         } catch (e) { return false; }
     }
@@ -475,7 +568,6 @@ const SongArranger = (function () {
         const prog = progressions[sec.progressionId];
         if (!prog) return;
 
-        // Update editing label
         const label = document.getElementById('sa-editing-label');
         if (label) label.textContent = 'Editing: ' + sec.name;
 
@@ -549,22 +641,41 @@ const SongArranger = (function () {
             { id: 'pad',     label: 'Pad',     color: '#45B7D1' },
             { id: 'strings', label: 'Strings', color: '#55EFC4' },
         ];
+
         instrDefs.forEach(({ id, label, color }) => {
-            const instr = sec.instruments[id] || (sec.instruments[id] = { enabled: false, vel: 0.5 });
+            const instr = sec.instruments[id] || (sec.instruments[id] = { enabled: false, vel: 0.5, notePattern: null });
             const wrap = document.createElement('div');
             wrap.className = 'sa-instr-item';
+
+            // Top row: checkbox label + piano roll button
+            const topRow = document.createElement('div');
+            topRow.className = 'sa-instr-top-row';
 
             const toggle = document.createElement('label');
             toggle.className = 'sa-instr-toggle';
             const cb = document.createElement('input');
             cb.type = 'checkbox'; cb.checked = instr.enabled;
             cb.style.accentColor = color;
-            cb.addEventListener('change', () => { instr.enabled = cb.checked; saveState(); });
             const span = document.createElement('span');
             span.style.color = instr.enabled ? color : '#aaa';
             span.textContent = label;
-            cb.addEventListener('change', () => { span.style.color = cb.checked ? color : '#aaa'; });
+            cb.addEventListener('change', () => {
+                instr.enabled = cb.checked;
+                span.style.color = cb.checked ? color : '#aaa';
+                saveState();
+            });
             toggle.appendChild(cb); toggle.appendChild(span);
+
+            // Piano roll open button — highlighted when pattern mode is active
+            const prBtn = document.createElement('button');
+            const hasActivePattern = instr.notePattern?.active && instr.notePattern?.steps?.length > 0;
+            prBtn.className = 'sa-pr-open-btn' + (hasActivePattern ? ' sa-pr-btn-active' : '');
+            prBtn.title = 'Open Piano Roll';
+            prBtn.textContent = '🎹';
+            prBtn.style.setProperty('--pr-color', color);
+            prBtn.addEventListener('click', (e) => { e.stopPropagation(); openSAPianoRoll(id); });
+
+            topRow.appendChild(toggle); topRow.appendChild(prBtn);
 
             const vol = document.createElement('input');
             vol.type = 'range'; vol.min = 0; vol.max = 1; vol.step = 0.05;
@@ -573,7 +684,7 @@ const SongArranger = (function () {
             vol.title = label + ' volume';
             vol.addEventListener('input', () => { instr.vel = parseFloat(vol.value); saveState(); });
 
-            wrap.appendChild(toggle); wrap.appendChild(vol);
+            wrap.appendChild(topRow); wrap.appendChild(vol);
             row.appendChild(wrap);
         });
     }
@@ -617,7 +728,6 @@ const SongArranger = (function () {
             });
             track.appendChild(block);
         });
-        // Empty slots hint
         if (arrangement.length === 0) {
             const hint = document.createElement('div');
             hint.className = 'sa-arr-empty';
@@ -649,7 +759,6 @@ const SongArranger = (function () {
         const prog = progressions[sec.progressionId];
         const chord = prog.chords[chordIdx];
 
-        // Roots
         const rootsEl = document.getElementById('sa-picker-roots');
         if (rootsEl) {
             rootsEl.innerHTML = '';
@@ -667,7 +776,6 @@ const SongArranger = (function () {
             });
         }
 
-        // Types
         const typesEl = document.getElementById('sa-picker-types');
         if (typesEl) {
             typesEl.innerHTML = '';
@@ -686,7 +794,6 @@ const SongArranger = (function () {
             });
         }
 
-        // Position picker
         const rect = anchorEl.getBoundingClientRect();
         picker.style.display = 'block';
         let top  = rect.bottom + window.scrollY + 6;
@@ -703,6 +810,209 @@ const SongArranger = (function () {
         pickerChordIdx = null;
     }
 
+    // ── SA Piano Roll ─────────────────────────────────────────────────
+
+    function openSAPianoRoll(instrId) {
+        if (!currentSectionId) return;
+        saPR.instrId = instrId;
+        saPR.secId   = currentSectionId;
+        const modal = document.getElementById('sa-pr-modal');
+        if (modal) modal.classList.add('sa-pr-open');
+        renderSAPianoRoll(instrId);
+    }
+
+    function closeSAPianoRoll() {
+        saPR.instrId = null;
+        saPR.secId   = null;
+        saPR.dragActive = false;
+        const modal = document.getElementById('sa-pr-modal');
+        if (modal) modal.classList.remove('sa-pr-open');
+    }
+
+    function renderSAPianoRoll(instrId) {
+        const sec = sections[saPR.secId];
+        if (!sec) return;
+        const cfg  = SA_INSTR_CONFIG[instrId];
+        if (!cfg) return;
+        const prog = progressions[sec.progressionId];
+        const totalBars  = getTotalBarsInSection(sec);
+        const instr = sec.instruments[instrId] || {};
+        const pat   = instr.notePattern;
+
+        // Update header
+        const dot    = document.getElementById('sa-pr-dot');
+        const nameEl = document.getElementById('sa-pr-name');
+        const toggle = document.getElementById('sa-pr-mode-toggle');
+        if (dot)    dot.style.background = cfg.color;
+        if (nameEl) nameEl.textContent   = cfg.label;
+        if (toggle) toggle.checked       = pat?.active ?? false;
+
+        // Build active-notes lookup set
+        const activeSet = new Set();
+        (pat?.steps || []).forEach(n => activeSet.add(`${n.pitch}:${n.step}`));
+
+        const grid = document.getElementById('sa-pr-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        // ── Header row: chord names ──────────────────────────────────
+        const hdr = document.createElement('div');
+        hdr.className = 'sa-pr-row sa-pr-header-row';
+        const hKey = document.createElement('div');
+        hKey.className = 'sa-pr-key-label sa-pr-hdr-key';
+        hKey.textContent = 'Note';
+        hdr.appendChild(hKey);
+
+        let globalHdrStep = 0;
+        (prog?.chords || []).forEach((chord, ci) => {
+            const bars = chord.bars || 1;
+            for (let b = 0; b < bars; b++) {
+                if (globalHdrStep > 0) {
+                    const sep = document.createElement('div');
+                    sep.className = 'sa-pr-bar-sep';
+                    hdr.appendChild(sep);
+                }
+                for (let s = 0; s < 16; s++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'sa-pr-hdr-cell';
+                    if (s === 0) {
+                        cell.textContent = chordLabel(chord.root, chord.type);
+                        cell.style.color = cfg.color;
+                        cell.title = chord.bars > 1 ? `${chordLabel(chord.root, chord.type)} (${chord.bars} bars)` : '';
+                    } else if (s % 4 === 0) {
+                        cell.textContent = (s / 4 + 1);
+                    }
+                    hdr.appendChild(cell);
+                }
+                globalHdrStep++;
+            }
+        });
+        grid.appendChild(hdr);
+
+        // ── Pitch rows ───────────────────────────────────────────────
+        for (let p = cfg.maxPitch; p >= cfg.minPitch; p--) {
+            const isBlack  = SA_BLACK_KEYS.has(p % 12);
+            const isC      = (p % 12 === 0);
+            const noteName = NOTE_NAMES[p % 12];
+            const octave   = Math.floor(p / 12) - 1;
+
+            const row = document.createElement('div');
+            row.className = 'sa-pr-row' +
+                (isBlack ? ' sa-pr-row-black' : '') +
+                (isC     ? ' sa-pr-row-c'     : '');
+            row.dataset.pitch = p;
+
+            // Sticky key label
+            const keyLabel = document.createElement('div');
+            keyLabel.className = 'sa-pr-key-label' + (isBlack ? ' sa-pr-key-black' : '');
+            keyLabel.textContent = isC ? noteName + octave : (isBlack ? '' : noteName);
+            row.appendChild(keyLabel);
+
+            // Step cells grouped by bar
+            let globalStep = 0;
+            (prog?.chords || []).forEach((chord, ci) => {
+                const bars = chord.bars || 1;
+                for (let b = 0; b < bars; b++) {
+                    if (globalStep > 0) {
+                        const sep = document.createElement('div');
+                        sep.className = 'sa-pr-bar-sep';
+                        row.appendChild(sep);
+                    }
+                    for (let s = 0; s < 16; s++) {
+                        const cell = document.createElement('div');
+                        const isActive = activeSet.has(`${p}:${globalStep}`);
+                        cell.className = 'sa-pr-cell' +
+                            (isActive ? ' sa-pr-cell-active' : '') +
+                            (s % 4 === 0 ? ' sa-pr-beat-start' : '');
+                        if (isActive) cell.style.setProperty('--instr-color', cfg.color);
+                        cell.dataset.step = globalStep;
+                        row.appendChild(cell);
+                        globalStep++;
+                    }
+                }
+            });
+
+            grid.appendChild(row);
+        }
+    }
+
+    function toggleSAPRNote(pitch, step, targetActive) {
+        const sec   = sections[saPR.secId];
+        if (!sec) return;
+        const instr = sec.instruments[saPR.instrId];
+        if (!instr) return;
+        if (!instr.notePattern) instr.notePattern = { active: true, steps: [] };
+
+        const steps = instr.notePattern.steps;
+        const idx   = steps.findIndex(n => n.pitch === pitch && n.step === step);
+        if (targetActive && idx === -1) {
+            steps.push({ pitch, step, vel: 1.0 });
+        } else if (!targetActive && idx !== -1) {
+            steps.splice(idx, 1);
+        }
+
+        // Update cell visual without full re-render
+        const cfg  = SA_INSTR_CONFIG[saPR.instrId];
+        const cell = document.querySelector(
+            `#sa-pr-grid .sa-pr-row[data-pitch="${pitch}"] .sa-pr-cell[data-step="${step}"]`
+        );
+        if (cell) {
+            cell.classList.toggle('sa-pr-cell-active', !!targetActive);
+            if (targetActive) cell.style.setProperty('--instr-color', cfg.color);
+            else              cell.style.removeProperty('--instr-color');
+        }
+        saveState();
+    }
+
+    function fillSAFromChord(instrId) {
+        const sec = sections[saPR.secId];
+        if (!sec) return;
+        const prog = progressions[sec.progressionId];
+        if (!prog) return;
+        const cfg   = SA_INSTR_CONFIG[instrId];
+        const instr = sec.instruments[instrId];
+        if (!instr.notePattern) instr.notePattern = { active: true, steps: [] };
+        instr.notePattern.steps  = [];
+        instr.notePattern.active = true;
+
+        function adjustToRange(pitch) {
+            while (pitch < cfg.minPitch) pitch += 12;
+            while (pitch > cfg.maxPitch) pitch -= 12;
+            return (pitch >= cfg.minPitch && pitch <= cfg.maxPitch) ? pitch : null;
+        }
+
+        let barOffset = 0;
+        prog.chords.forEach(chord => {
+            const bars = chord.bars || 1;
+            let notes;
+            if (instrId === 'bass') {
+                // Root note only, adjusted into bass range
+                const root = adjustToRange(NOTE_NAMES.indexOf(chord.root) + 3 * 12);
+                notes = root !== null ? [root] : [];
+            } else {
+                const oct = instrId === 'pad' ? 3 : 4;
+                let rawNotes = getChordNotes(chord.root, chord.type, oct);
+                notes = rawNotes.map(adjustToRange).filter(n => n !== null);
+                // Deduplicate
+                notes = [...new Set(notes)];
+            }
+
+            for (let b = 0; b < bars; b++) {
+                const startStep = (barOffset + b) * 16;
+                notes.forEach(pitch => {
+                    instr.notePattern.steps.push({ pitch, step: startStep, vel: 1.0 });
+                });
+            }
+            barOffset += bars;
+        });
+
+        const toggle = document.getElementById('sa-pr-mode-toggle');
+        if (toggle) toggle.checked = true;
+        renderSAPianoRoll(instrId);
+        renderInstruments(); // refresh piano roll button highlight
+        saveState();
+    }
+
     // ── Init ──────────────────────────────────────────────────────────
 
     function syncUI() {
@@ -715,7 +1025,6 @@ const SongArranger = (function () {
     function init() {
         const hadState = loadState();
         if (!hadState) {
-            // Default song: Verse + Chorus
             const v = createSection('Verse');
             sections[v].instruments.piano.enabled  = true;
             sections[v].instruments.bass.enabled   = true;
@@ -727,7 +1036,6 @@ const SongArranger = (function () {
             sections[c].instruments.guitar.enabled = true;
             sections[c].instruments.bass.enabled   = true;
 
-            // Verse: Am-F-C-G, Chorus: F-C-G-Am
             const vProg = progressions[sections[v].progressionId];
             vProg.chords = [
                 { root: 'A', type: 'min', bars: 2 },
@@ -800,23 +1108,85 @@ const SongArranger = (function () {
         // ── Close chord picker on outside click ───────────────────────
         document.addEventListener('click', function (e) {
             const picker = document.getElementById('sa-chord-picker');
-            if (picker && picker.style.display !== 'none' && !picker.contains(e.target) && !e.target.closest('.sa-chord-block')) {
+            if (picker && picker.style.display !== 'none' &&
+                !picker.contains(e.target) && !e.target.closest('.sa-chord-block')) {
                 closeChordPicker();
             }
         });
 
-        // ── Tab switching (also handles theremin/dm tabs) ──────────────
+        // ── SA Piano Roll ──────────────────────────────────────────────
+        document.getElementById('sa-pr-close')?.addEventListener('click', closeSAPianoRoll);
+        document.getElementById('sa-pr-modal')?.addEventListener('click', function (e) {
+            if (e.target === this) closeSAPianoRoll();
+        });
+
+        document.getElementById('sa-pr-mode-toggle')?.addEventListener('change', function () {
+            const sec = sections[saPR.secId];
+            if (!sec || !saPR.instrId) return;
+            const instr = sec.instruments[saPR.instrId];
+            if (!instr.notePattern) instr.notePattern = { active: false, steps: [] };
+            instr.notePattern.active = this.checked;
+            renderInstruments(); // refresh button highlight
+            saveState();
+        });
+
+        document.getElementById('sa-pr-fill')?.addEventListener('click', function () {
+            if (saPR.instrId) fillSAFromChord(saPR.instrId);
+        });
+
+        document.getElementById('sa-pr-clear')?.addEventListener('click', function () {
+            const sec = sections[saPR.secId];
+            if (!sec || !saPR.instrId) return;
+            const instr = sec.instruments[saPR.instrId];
+            if (instr.notePattern) instr.notePattern.steps = [];
+            renderSAPianoRoll(saPR.instrId);
+            renderInstruments();
+            saveState();
+        });
+
+        // Grid mouse interaction (click + drag-paint)
+        const saPRGrid = document.getElementById('sa-pr-grid');
+        if (saPRGrid) {
+            saPRGrid.addEventListener('mousedown', function (e) {
+                const cell = e.target.closest('.sa-pr-cell');
+                if (!cell) return;
+                const row = cell.closest('.sa-pr-row[data-pitch]');
+                if (!row) return;
+                const pitch    = parseInt(row.dataset.pitch);
+                const step     = parseInt(cell.dataset.step);
+                const isActive = cell.classList.contains('sa-pr-cell-active');
+                saPR.dragActive = true;
+                saPR.dragState  = isActive ? 'remove' : 'add';
+                toggleSAPRNote(pitch, step, !isActive);
+                e.preventDefault();
+            });
+            saPRGrid.addEventListener('mouseover', function (e) {
+                if (!saPR.dragActive) return;
+                const cell = e.target.closest('.sa-pr-cell');
+                if (!cell) return;
+                const row = cell.closest('.sa-pr-row[data-pitch]');
+                if (!row) return;
+                const pitch    = parseInt(row.dataset.pitch);
+                const step     = parseInt(cell.dataset.step);
+                const target   = saPR.dragState === 'add';
+                const isActive = cell.classList.contains('sa-pr-cell-active');
+                if (isActive !== target) toggleSAPRNote(pitch, step, target);
+            });
+            document.addEventListener('mouseup', () => { saPR.dragActive = false; });
+        }
+
+        // ── Tab switching ──────────────────────────────────────────────
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function () {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 const tab = this.dataset.tab;
-                const thereminEl  = document.getElementById('theremin-panel');
-                const drumEl      = document.getElementById('drum-machine-panel');
-                const songEl      = document.getElementById('song-panel');
-                if (thereminEl) thereminEl.style.display = tab === 'theremin'      ? '' : 'none';
-                if (drumEl)     drumEl.style.display     = tab === 'drum-machine'  ? '' : 'none';
-                if (songEl)     songEl.style.display     = tab === 'song'          ? '' : 'none';
+                const thereminEl = document.getElementById('theremin-panel');
+                const drumEl     = document.getElementById('drum-machine-panel');
+                const songEl     = document.getElementById('song-panel');
+                if (thereminEl) thereminEl.style.display = tab === 'theremin'     ? '' : 'none';
+                if (drumEl)     drumEl.style.display     = tab === 'drum-machine' ? '' : 'none';
+                if (songEl)     songEl.style.display     = tab === 'song'         ? '' : 'none';
             });
         });
 
