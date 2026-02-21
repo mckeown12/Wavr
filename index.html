@@ -559,6 +559,28 @@
 
     </div>
 
+    <!-- Piano Roll Modal -->
+    <div id="dm-pr-modal" class="dm-pr-modal">
+        <div class="dm-pr-panel">
+            <div class="dm-pr-header">
+                <div class="dm-pr-title">
+                    <span id="dm-pr-dot" class="dm-pr-dot"></span>
+                    <span id="dm-pr-name" class="dm-pr-name"></span>
+                </div>
+                <div class="dm-pr-actions">
+                    <button id="dm-pr-generate" class="dm-btn dm-btn-outline">&#9732; Generate</button>
+                    <button id="dm-pr-variant"  class="dm-btn dm-btn-outline">&#10022; Variant</button>
+                    <select id="dm-pr-copy-from" class="dm-select"></select>
+                    <button id="dm-pr-clear" class="dm-btn dm-btn-outline dm-btn-danger">Clear</button>
+                    <button id="dm-pr-close" class="dm-pr-close-btn">&#10005;</button>
+                </div>
+            </div>
+            <div id="dm-pr-beat-labels" class="dm-pr-beat-labels"></div>
+            <div id="dm-pr-grid" class="dm-pr-grid"></div>
+            <p class="dm-pr-hint">Click to add &nbsp;·&nbsp; Click active step to remove &nbsp;·&nbsp; Drag up/down to set velocity</p>
+        </div>
+    </div>
+
     <!-- Chord picker popover -->
     <div id="sa-chord-picker" class="sa-chord-picker">
         <div class="sa-picker-label">Root</div>

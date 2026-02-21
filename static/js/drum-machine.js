@@ -576,6 +576,123 @@ const DrumMachine = (function () {
         pickerTargetSlot = -1;
     }
 
+    // ── Piano Roll ────────────────────────────────────────────────────
+
+    let prCurrentInstrId = null;
+    const prDrag = { active: false, step: -1, instrId: null, startY: 0, lastY: 0, startVel: 0, moved: 0 };
+
+    function openPianoRoll(instrId) {
+        prCurrentInstrId = instrId;
+        const modal = document.getElementById('dm-pr-modal');
+        if (!modal) return;
+        modal.classList.add('dm-pr-open');
+        renderPianoRoll(instrId);
+    }
+
+    function closePianoRoll() {
+        prCurrentInstrId = null;
+        const modal = document.getElementById('dm-pr-modal');
+        if (modal) modal.classList.remove('dm-pr-open');
+    }
+
+    function renderPianoRoll(instrId) {
+        const instr = INSTRUMENTS.find(i => i.id === instrId);
+        if (!instr) return;
+
+        const dotEl  = document.getElementById('dm-pr-dot');
+        const nameEl = document.getElementById('dm-pr-name');
+        if (dotEl)  dotEl.style.background = instr.color;
+        if (nameEl) nameEl.textContent = instr.label;
+
+        const grid = document.getElementById('dm-pr-grid');
+        if (!grid || !currentPatternId) return;
+        const pat = patterns[currentPatternId];
+        grid.style.setProperty('--instr-color', instr.color);
+        grid.innerHTML = '';
+
+        // Beat-number labels
+        const labelsWrap = document.getElementById('dm-pr-beat-labels');
+        if (labelsWrap) {
+            labelsWrap.innerHTML = '';
+            for (let s = 0; s < stepsCount; s++) {
+                if (s > 0 && s % 4 === 0) {
+                    const sep = document.createElement('div'); sep.className = 'dm-pr-sep';
+                    labelsWrap.appendChild(sep);
+                }
+                const lbl = document.createElement('div');
+                lbl.className = 'dm-pr-beat-label' + (s % 4 === 0 ? ' dm-pr-downbeat' : '');
+                lbl.textContent = s % 4 === 0 ? (s / 4 + 1) : '·';
+                labelsWrap.appendChild(lbl);
+            }
+        }
+
+        // Step velocity columns
+        for (let s = 0; s < stepsCount; s++) {
+            if (s > 0 && s % 4 === 0) {
+                const sep = document.createElement('div'); sep.className = 'dm-pr-sep';
+                grid.appendChild(sep);
+            }
+            const col = document.createElement('div');
+            col.className = 'dm-pr-col';
+            col.dataset.step = s;
+
+            const isOn = !!(pat.steps[instrId]?.[s]);
+            const vel  = isOn ? (pat.vel[instrId]?.[s] ?? 1.0) : 0;
+            const prob = isOn ? (pat.prob[instrId]?.[s] ?? 100) : 100;
+
+            if (isOn) {
+                const bar = document.createElement('div');
+                bar.className = 'dm-pr-bar' + (vel < 0.8 ? ' dm-pr-ghost' : '');
+                bar.style.height = (vel * 100) + '%';
+                if (prob < 100) {
+                    const pl = document.createElement('div');
+                    pl.className = 'dm-pr-prob-label';
+                    pl.textContent = prob + '%';
+                    bar.appendChild(pl);
+                }
+                col.appendChild(bar);
+            }
+            grid.appendChild(col);
+        }
+
+        // Copy-from dropdown
+        const copyFromSel = document.getElementById('dm-pr-copy-from');
+        if (copyFromSel) {
+            copyFromSel.innerHTML = '<option value="">Copy from...</option>';
+            INSTRUMENTS.forEach(i => {
+                if (i.id === instrId) return;
+                const opt = document.createElement('option');
+                opt.value = i.id; opt.textContent = i.label;
+                copyFromSel.appendChild(opt);
+            });
+        }
+    }
+
+    function createVariant(instrId) {
+        const pat = patterns[currentPatternId];
+        if (!pat) return;
+        const density = RAND_DENSITY[instrId] || 0.2;
+        const ns = new Array(stepsCount).fill(false);
+        const nv = new Array(stepsCount).fill(1.0);
+        const np = new Array(stepsCount).fill(100);
+        for (let i = 0; i < stepsCount; i++) {
+            if (pat.steps[instrId][i]) {
+                if (Math.random() < 0.75) {
+                    ns[i] = true;
+                    nv[i] = Math.max(0.15, Math.min(1.0, (pat.vel[instrId][i] || 1.0) + (Math.random() - 0.5) * 0.3));
+                    np[i] = pat.prob[instrId][i] || 100;
+                }
+            } else if (Math.random() < density * 0.55) {
+                ns[i] = true;
+                nv[i] = 0.45 + Math.random() * 0.55;
+            }
+        }
+        pat.steps[instrId] = ns; pat.vel[instrId] = nv; pat.prob[instrId] = np;
+        renderPianoRoll(instrId);
+        rebuildSequencerSteps();
+        saveState();
+    }
+
     // ══════════════════════════════════════════════════════════════════
     // Pattern Management
     // ══════════════════════════════════════════════════════════════════
@@ -737,19 +854,23 @@ const DrumMachine = (function () {
 
             const dot = document.createElement('span');
             dot.className = 'dm-instr-dot'; dot.style.background = instr.color;
+            dot.style.cursor = 'pointer'; dot.title = 'Open piano roll';
+            dot.addEventListener('click', () => openPianoRoll(instr.id));
 
             const name = document.createElement('span');
             name.className = 'dm-instr-name'; name.textContent = instr.label;
+            name.style.cursor = 'pointer'; name.title = 'Open piano roll';
+            name.addEventListener('click', () => openPianoRoll(instr.id));
 
             const muteBtn = document.createElement('button');
             muteBtn.className = 'dm-mute-btn' + (mutedInstruments.has(instr.id) ? ' dm-muted' : '');
             muteBtn.title = 'Mute'; muteBtn.textContent = 'M';
-            muteBtn.addEventListener('click', () => toggleMute(instr.id));
+            muteBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMute(instr.id); });
 
             const randBtn = document.createElement('button');
             randBtn.className = 'dm-rand-btn'; randBtn.title = 'Randomize row';
             randBtn.textContent = '⚄';
-            randBtn.addEventListener('click', () => randomizeRow(instr.id));
+            randBtn.addEventListener('click', (e) => { e.stopPropagation(); randomizeRow(instr.id); });
 
             label.appendChild(dot); label.appendChild(name); label.appendChild(muteBtn); label.appendChild(randBtn);
 
@@ -805,6 +926,12 @@ const DrumMachine = (function () {
             const btn = stepsEl.querySelectorAll('.dm-step-btn')[step];
             if (btn) btn.classList.add('dm-playhead');
         });
+        // Piano roll playhead
+        if (prCurrentInstrId) {
+            document.querySelectorAll('#dm-pr-grid .dm-pr-col').forEach(col => {
+                col.classList.toggle('dm-pr-playing', parseInt(col.dataset.step) === step);
+            });
+        }
     }
 
     function updatePatternSelect() {
@@ -978,6 +1105,85 @@ const DrumMachine = (function () {
 
         // ── Kit ───────────────────────────────────────────────────────
         document.getElementById('dm-kit-select')?.addEventListener('change', function () { switchKit(this.value); });
+
+        // ── Piano Roll ────────────────────────────────────────────────
+        document.getElementById('dm-pr-close')?.addEventListener('click', closePianoRoll);
+        document.getElementById('dm-pr-modal')?.addEventListener('click', function (e) {
+            if (e.target === this) closePianoRoll();
+        });
+        document.getElementById('dm-pr-generate')?.addEventListener('click', () => {
+            if (!prCurrentInstrId) return;
+            randomizeRow(prCurrentInstrId); renderPianoRoll(prCurrentInstrId);
+        });
+        document.getElementById('dm-pr-variant')?.addEventListener('click', () => {
+            if (prCurrentInstrId) createVariant(prCurrentInstrId);
+        });
+        document.getElementById('dm-pr-copy-from')?.addEventListener('change', function () {
+            if (!this.value || !prCurrentInstrId || !currentPatternId) return;
+            const pat = patterns[currentPatternId]; const srcId = this.value;
+            pat.steps[prCurrentInstrId] = [...pat.steps[srcId]];
+            pat.vel[prCurrentInstrId]   = [...pat.vel[srcId]];
+            pat.prob[prCurrentInstrId]  = [...pat.prob[srcId]];
+            renderPianoRoll(prCurrentInstrId); rebuildSequencerSteps(); saveState();
+            this.value = '';
+        });
+        document.getElementById('dm-pr-clear')?.addEventListener('click', () => {
+            if (!prCurrentInstrId || !currentPatternId) return;
+            const pat = patterns[currentPatternId];
+            pat.steps[prCurrentInstrId] = new Array(stepsCount).fill(false);
+            pat.vel[prCurrentInstrId]   = new Array(stepsCount).fill(1.0);
+            pat.prob[prCurrentInstrId]  = new Array(stepsCount).fill(100);
+            renderPianoRoll(prCurrentInstrId); rebuildSequencerSteps(); saveState();
+        });
+        // Grid drag — pointer events for velocity editing
+        const prGrid = document.getElementById('dm-pr-grid');
+        if (prGrid) {
+            prGrid.addEventListener('pointerdown', function (e) {
+                if (!prCurrentInstrId || !currentPatternId) return;
+                const col = e.target.closest('.dm-pr-col');
+                if (!col) return;
+                const step = parseInt(col.dataset.step);
+                const pat  = patterns[currentPatternId];
+                e.preventDefault();
+                if (!pat.steps[prCurrentInstrId]?.[step]) {
+                    pat.steps[prCurrentInstrId][step] = true;
+                    pat.vel[prCurrentInstrId][step]   = 1.0;
+                    pat.prob[prCurrentInstrId][step]  = 100;
+                    renderPianoRoll(prCurrentInstrId); rebuildSequencerSteps(); saveState();
+                } else {
+                    prDrag.active   = true; prDrag.step = step;
+                    prDrag.instrId  = prCurrentInstrId;
+                    prDrag.startY   = e.clientY; prDrag.lastY = e.clientY;
+                    prDrag.startVel = pat.vel[prCurrentInstrId]?.[step] ?? 1.0;
+                    prDrag.moved    = 0;
+                    prGrid.setPointerCapture(e.pointerId);
+                }
+            }, { passive: false });
+            prGrid.addEventListener('pointermove', function (e) {
+                if (!prDrag.active) return;
+                prDrag.moved += Math.abs(e.clientY - prDrag.lastY);
+                prDrag.lastY = e.clientY;
+                if (prDrag.moved > 3) {
+                    const delta  = (prDrag.startY - e.clientY) / 130;
+                    const newVel = Math.max(0.1, Math.min(1.0, prDrag.startVel + delta));
+                    const pat    = patterns[currentPatternId];
+                    if (pat) {
+                        pat.vel[prDrag.instrId][prDrag.step] = newVel;
+                        const bar = prGrid.querySelector(`.dm-pr-col[data-step="${prDrag.step}"] .dm-pr-bar`);
+                        if (bar) { bar.style.height = (newVel * 100) + '%'; bar.classList.toggle('dm-pr-ghost', newVel < 0.8); }
+                        rebuildSequencerSteps();
+                    }
+                }
+            });
+            prGrid.addEventListener('pointerup', function () {
+                if (!prDrag.active) return;
+                if (prDrag.moved < 4) {
+                    const pat = patterns[currentPatternId];
+                    if (pat) { pat.steps[prDrag.instrId][prDrag.step] = false; renderPianoRoll(prDrag.instrId); rebuildSequencerSteps(); }
+                }
+                prDrag.active = false; saveState();
+            });
+        }
 
         // ── FX controls ───────────────────────────────────────────────
         const onFX = () => { applyFX(); saveState(); };
