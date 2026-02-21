@@ -947,8 +947,31 @@ const DrumMachine = (function () {
         // ── BPM ───────────────────────────────────────────────────────
         const bpmDisplay = document.getElementById('dm-bpm-display');
         const bpmSlider  = document.getElementById('dm-bpm-slider');
-        if (bpmSlider) bpmSlider.addEventListener('input', function () { bpm = parseInt(this.value); if (bpmDisplay) bpmDisplay.value = bpm; saveState(); });
-        if (bpmDisplay) bpmDisplay.addEventListener('input', function () { const v = Math.max(40, Math.min(240, parseInt(this.value) || 120)); bpm = v; this.value = v; if (bpmSlider) bpmSlider.value = v; saveState(); });
+        if (bpmSlider) bpmSlider.addEventListener('input', function () {
+            bpm = parseInt(this.value);
+            if (bpmDisplay) bpmDisplay.value = bpm;
+            saveState();
+        });
+        if (bpmDisplay) {
+            // Update bpm live only when value is already in range; don't overwrite while typing
+            bpmDisplay.addEventListener('input', function () {
+                const v = parseInt(this.value);
+                if (!isNaN(v) && v >= 40 && v <= 240) {
+                    bpm = v;
+                    if (bpmSlider) bpmSlider.value = v;
+                    saveState();
+                }
+            });
+            // Clamp + commit on blur or Enter
+            const commitBPM = function () {
+                const v = Math.max(40, Math.min(240, parseInt(this.value) || 120));
+                bpm = v; this.value = v;
+                if (bpmSlider) bpmSlider.value = v;
+                saveState();
+            };
+            bpmDisplay.addEventListener('blur',    commitBPM);
+            bpmDisplay.addEventListener('keydown', function (e) { if (e.key === 'Enter') this.blur(); });
+        }
 
         // ── Tap ───────────────────────────────────────────────────────
         document.getElementById('dm-tap-tempo')?.addEventListener('click', handleTap);
