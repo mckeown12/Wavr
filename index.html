@@ -593,15 +593,41 @@
                     <label class="sa-pr-mode-label">
                         <input type="checkbox" id="sa-pr-mode-toggle"> Pattern Mode
                     </label>
-                    <button id="sa-pr-fill" class="dm-btn dm-btn-outline">Fill from Chords</button>
                     <button id="sa-pr-clear" class="dm-btn dm-btn-outline dm-btn-danger">Clear</button>
                     <button id="sa-pr-close" class="dm-pr-close-btn">&#10005;</button>
+                </div>
+            </div>
+            <!-- Duration picker + Fill controls row -->
+            <div class="sa-pr-toolbar">
+                <div class="sa-pr-dur-row">
+                    <span class="dm-label">Duration</span>
+                    <div class="sa-pr-dur-btns">
+                        <button class="sa-pr-dur-btn active" data-dur="1">1/16</button>
+                        <button class="sa-pr-dur-btn" data-dur="2">1/8</button>
+                        <button class="sa-pr-dur-btn" data-dur="4">1/4</button>
+                        <button class="sa-pr-dur-btn" data-dur="8">1/2</button>
+                        <button class="sa-pr-dur-btn" data-dur="16">Bar</button>
+                    </div>
+                </div>
+                <div class="sa-pr-fill-row">
+                    <span class="dm-label">Fill</span>
+                    <select id="sa-pr-fill-style" class="dm-select">
+                        <option value="block">Block</option>
+                        <option value="arp-up">Arp ↑</option>
+                        <option value="arp-down">Arp ↓</option>
+                        <option value="sparse">Sparse</option>
+                        <option value="rhythm">Rhythm</option>
+                    </select>
+                    <span class="dm-label">Color</span>
+                    <input type="range" id="sa-pr-fill-color" min="0" max="100" value="30" class="sa-pr-fill-slider" title="Color: 0=pure chord tones, 100=passing notes, extensions, chromatics">
+                    <span id="sa-pr-fill-color-val" class="sa-pr-fill-val">30%</span>
+                    <button id="sa-pr-fill" class="dm-btn dm-btn-outline">&#9733; Fill</button>
                 </div>
             </div>
             <div class="sa-pr-grid-area">
                 <div id="sa-pr-grid" class="sa-pr-grid"></div>
             </div>
-            <p class="dm-pr-hint">Click to add &nbsp;·&nbsp; click active to remove &nbsp;·&nbsp; drag to paint &nbsp;·&nbsp; enable Pattern Mode to override chord voicing</p>
+            <p class="dm-pr-hint">Click to add &nbsp;·&nbsp; click note to remove &nbsp;·&nbsp; drag right edge to resize &nbsp;·&nbsp; drag to paint &nbsp;·&nbsp; Pattern Mode overrides chord voicing</p>
         </div>
     </div>
 

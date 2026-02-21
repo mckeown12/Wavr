@@ -1315,7 +1315,39 @@ const DrumMachine = (function () {
         });
     }
 
-    return { init };
+    // ── DM/SA Integration API ─────────────────────────────────────────
+    //
+    // schedulePatternBar: Called by SongArranger to play a drum pattern in sync.
+    // secondsFromNow: how far in the future (from this ctx's currentTime) to start the bar.
+    // bpmVal: the SA's current BPM (may differ from DM's own BPM setting).
+    //
+    function schedulePatternBar(patternId, secondsFromNow, bpmVal) {
+        if (!patterns[patternId]) return;
+        if (!ctx) return; // DM audio context not yet initialized — user must interact with DM first
+        if (ctx.state === 'suspended') return;
+        const pat      = patterns[patternId];
+        const stepDur  = (60 / (bpmVal || bpm)) / 4; // 16th-note duration at given BPM
+        const startTime = ctx.currentTime + Math.max(0, secondsFromNow);
+        const stepsToPlay = Math.min(16, pat.steps['kick']?.length ?? 0);
+        INSTRUMENTS.forEach(instr => {
+            if (mutedInstruments.has(instr.id)) return;
+            const instrSteps = pat.steps[instr.id];
+            if (!instrSteps) return;
+            for (let s = 0; s < stepsToPlay; s++) {
+                if (!instrSteps[s]) continue;
+                const prob = pat.prob[instr.id]?.[s] ?? 100;
+                if (prob < 100 && Math.random() * 100 >= prob) continue;
+                const vel = pat.vel[instr.id]?.[s] ?? 1.0;
+                if (PLAY_FN[instr.id]) PLAY_FN[instr.id](startTime + s * stepDur, vel * (instrumentVolumes[instr.id] ?? 0.8));
+            }
+        });
+    }
+
+    function getPatternList() {
+        return Object.values(patterns).map(p => ({ id: p.id, name: p.name || p.id }));
+    }
+
+    return { init, schedulePatternBar, getPatternList };
 
 })();
 

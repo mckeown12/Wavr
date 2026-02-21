@@ -2359,6 +2359,117 @@ input[type="range"]::-moz-range-thumb {
 .sa-pr-mode-label:hover { border-color: #A29BFE; }
 .sa-pr-mode-label input { accent-color: #A29BFE; width: 13px; height: 13px; cursor: pointer; }
 
+/* ── Toolbar (duration picker + fill row) ────────────────────────── */
+.sa-pr-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0.5rem 0.6rem;
+    background: #f7f3ec;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.sa-pr-dur-row,
+.sa-pr-fill-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.sa-pr-dur-btns {
+    display: flex;
+    gap: 3px;
+}
+
+.sa-pr-dur-btn {
+    padding: 0.28rem 0.55rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid #d8d0c8;
+    border-radius: 6px;
+    background: white;
+    color: var(--gray);
+    transition: all 0.12s;
+    white-space: nowrap;
+}
+.sa-pr-dur-btn:hover { border-color: #A29BFE; color: #A29BFE; }
+.sa-pr-dur-btn.active { background: #A29BFE; border-color: #A29BFE; color: white; }
+
+.sa-pr-fill-slider {
+    width: 80px;
+    height: 3px;
+}
+
+.sa-pr-fill-val {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--gray);
+    min-width: 26px;
+}
+
+/* ── Step area (relative container for cells + note blocks) ──────── */
+.sa-pr-step-area {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+    height: 100%;
+    align-items: stretch;
+}
+
+/* ── Note blocks (absolutely positioned in step area) ───────────── */
+.sa-pr-note-block {
+    position: absolute;
+    top: 1px;
+    height: 16px;
+    background: var(--instr-color, #A29BFE);
+    border-radius: 3px;
+    z-index: 1;
+    cursor: pointer;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.22);
+    min-width: 10px;
+    transition: filter 0.08s;
+    user-select: none;
+}
+.sa-pr-note-block:hover { filter: brightness(1.15); }
+
+.sa-pr-note-resize {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 7px;
+    height: 100%;
+    cursor: e-resize;
+    background: rgba(255,255,255,0.35);
+    border-radius: 0 3px 3px 0;
+    z-index: 2;
+}
+.sa-pr-note-resize:hover { background: rgba(255,255,255,0.6); }
+
+/* Drum link row in instruments section */
+.sa-drum-link-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #f0e8d8;
+    width: 100%;
+}
+
+.sa-drum-link-select { min-width: 130px; }
+
+/* Drum indicator on arrangement blocks */
+.sa-arr-drum-indicator {
+    font-size: 0.65rem;
+    margin-left: 4px;
+    opacity: 0.85;
+}
+
 /* ── Grid area ───────────────────────────────────────────────────── */
 .sa-pr-grid-area {
     overflow: auto;
@@ -2378,7 +2489,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* ── Header row ──────────────────────────────────────────────────── */
 .sa-pr-header-row {
-    height: 22px;
+    height: 24px;
     position: sticky;
     top: 0;
     z-index: 3;
@@ -2415,7 +2526,7 @@ input[type="range"]::-moz-range-thumb {
 /* ── Pitch rows ──────────────────────────────────────────────────── */
 .sa-pr-row {
     display: flex;
-    height: 18px;
+    height: 20px;
     align-items: stretch;
 }
 
@@ -2444,7 +2555,7 @@ input[type="range"]::-moz-range-thumb {
 .sa-pr-cell {
     width: 14px;
     min-width: 14px;
-    height: 18px;
+    height: 20px;
     background: #faf7f2;
     border-right: 1px solid rgba(0,0,0,0.04);
     cursor: crosshair;
