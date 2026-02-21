@@ -21,6 +21,7 @@
     <nav class="tab-nav">
         <button class="tab-btn active" data-tab="theremin">&#9835; Theremin</button>
         <button class="tab-btn" data-tab="drum-machine">&#9654; Drum Machine</button>
+        <button class="tab-btn" data-tab="song">&#9836; Song</button>
     </nav>
 
     <main class="main" id="theremin-panel">
@@ -477,6 +478,95 @@
 
     </div>
 
+    <!-- Song Arranger Panel -->
+    <div id="song-panel" class="sa-panel" style="display:none">
+
+        <!-- Transport -->
+        <div class="card sa-transport-card">
+            <div class="sa-transport-row">
+                <button id="sa-play" class="sa-play-btn">&#9836; Play Song</button>
+                <button id="sa-stop" class="sa-stop-btn" disabled>&#9632; Stop</button>
+                <div class="dm-divider"></div>
+                <div class="dm-control-group">
+                    <label class="dm-label">BPM</label>
+                    <input type="text" inputmode="numeric" id="sa-bpm" class="dm-bpm-input" value="120">
+                    <input type="range" id="sa-bpm-slider" min="20" max="300" value="120">
+                </div>
+                <div class="dm-control-group">
+                    <label class="dm-label">Key</label>
+                    <select id="sa-key" class="dm-select">
+                        <option>C</option><option>C#</option><option>D</option><option>D#</option>
+                        <option>E</option><option>F</option><option>F#</option><option>G</option>
+                        <option>G#</option><option value="A" selected>A</option><option>A#</option><option>B</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main editor row -->
+        <div class="sa-main-row">
+
+            <!-- Section list -->
+            <div class="card sa-sections-card">
+                <h2 class="card-title sa-card-title">Sections</h2>
+                <div id="sa-section-list" class="sa-section-list"></div>
+                <button id="sa-add-section" class="dm-btn dm-btn-outline sa-add-btn">+ New Section</button>
+            </div>
+
+            <!-- Chord + instruments editor -->
+            <div class="card sa-editor-card">
+                <div class="sa-editor-top">
+                    <h2 class="card-title sa-card-title" id="sa-editing-label">Editing: Verse</h2>
+                    <div class="sa-preset-row">
+                        <label class="dm-label">Preset</label>
+                        <select id="sa-preset-select" class="dm-select">
+                            <option value="">-- Load preset --</option>
+                            <option value="pop-major">Pop (I–V–vi–IV)</option>
+                            <option value="pop-minor">Minor Pop (i–VI–III–VII)</option>
+                            <option value="doo-wop">Doo-Wop (I–vi–IV–V)</option>
+                            <option value="blues">12-Bar Blues</option>
+                            <option value="jazz-ii-V-I">Jazz (ii⁷–V⁷–Imaj7)</option>
+                            <option value="sad">Sad Minor (i–v–VI–III)</option>
+                            <option value="flamenco">Flamenco (i–VII–VI–V)</option>
+                            <option value="bossa">Bossa Nova (IIm7–V7–Imaj7)</option>
+                            <option value="andalusian">Andalusian Cadence</option>
+                            <option value="circle-of-5ths">Circle of 5ths</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="sa-chord-editor" class="sa-chord-editor"></div>
+                <div class="sa-instruments-section">
+                    <span class="dm-label">Instruments</span>
+                    <div id="sa-instr-toggles" class="sa-instr-toggles"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Song arrangement -->
+        <div class="card sa-arrangement-card">
+            <div class="sa-arr-header">
+                <h2 class="card-title sa-card-title">Song Arrangement</h2>
+                <div class="sa-arr-actions">
+                    <button id="sa-arrangement-clear" class="dm-btn dm-btn-outline">Clear</button>
+                </div>
+            </div>
+            <div class="sa-arr-track-wrapper">
+                <div id="sa-arrangement-track" class="sa-arr-track"></div>
+            </div>
+            <p class="dm-timeline-hint">Click <strong>+</strong> on a section to place it here &nbsp;·&nbsp; click a block to edit that section &nbsp;·&nbsp; ✕ to remove</p>
+        </div>
+
+    </div>
+
+    <!-- Chord picker popover -->
+    <div id="sa-chord-picker" class="sa-chord-picker">
+        <div class="sa-picker-label">Root</div>
+        <div id="sa-picker-roots" class="sa-picker-roots"></div>
+        <div class="sa-picker-label" style="margin-top:8px">Quality</div>
+        <div id="sa-picker-types" class="sa-picker-types"></div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
@@ -491,6 +581,7 @@
     <script src="./static/js/hand-tracking.js"></script>
     <script src="./static/js/app.js"></script>
     <script src="./static/js/drum-machine.js"></script>
+    <script src="./static/js/song-arranger.js"></script>
     <script>
         // Theremin mute toggle — wired here so it works without modifying app.js
         (function () {

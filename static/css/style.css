@@ -1603,3 +1603,481 @@ input[type="range"]::-moz-range-thumb {
         gap: 0.5rem;
     }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   SONG ARRANGER
+══════════════════════════════════════════════════════════════════ */
+.sa-panel {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.sa-card-title {
+    font-size: 1.1rem;
+    margin-bottom: 0.85rem;
+}
+
+/* ── Transport ───────────────────────────────────────────────────── */
+.sa-transport-card { }
+
+.sa-transport-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.sa-play-btn {
+    padding: 0.55rem 1.4rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    background: #A29BFE;
+    color: white;
+    border: 2px solid #A29BFE;
+    white-space: nowrap;
+}
+
+.sa-play-btn:hover    { background: #8c84ee; border-color: #8c84ee; }
+.sa-play-btn.sa-active { background: #8c84ee; border-color: #8c84ee; animation: pulse-record 1.2s ease-in-out infinite; }
+
+.sa-stop-btn {
+    padding: 0.55rem 1.3rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s;
+    background: white;
+    color: var(--coral);
+    border: 2px solid var(--coral);
+    white-space: nowrap;
+}
+.sa-stop-btn:hover:not(:disabled) { background: var(--coral); color: white; }
+.sa-stop-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* ── Main row ────────────────────────────────────────────────────── */
+.sa-main-row {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+/* ── Section list ────────────────────────────────────────────────── */
+.sa-sections-card { }
+
+.sa-section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 0.75rem;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.sa-section-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+    background: #f7f3ec;
+}
+
+.sa-section-item:hover { background: #f0e8d8; }
+
+.sa-section-item.sa-section-active {
+    background: #f0e8d8;
+    border-color: #d8d0c8;
+}
+
+.sa-section-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sa-section-name {
+    flex: 1;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--navy);
+    outline: none;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: text;
+}
+
+.sa-section-name:focus {
+    background: white;
+    border-radius: 3px;
+    padding: 1px 3px;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.sa-section-add-btn {
+    width: 20px; height: 20px;
+    border: 1.5px solid var(--turquoise);
+    color: var(--turquoise);
+    background: white;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+.sa-section-add-btn:hover { background: var(--turquoise); color: white; }
+
+.sa-section-del-btn {
+    width: 18px; height: 18px;
+    border: none; background: transparent;
+    color: #ccc; font-size: 0.9rem;
+    cursor: pointer; padding: 0; line-height: 1;
+    flex-shrink: 0; transition: color 0.15s;
+}
+.sa-section-del-btn:hover { color: var(--coral); }
+
+.sa-add-btn {
+    width: 100%;
+    text-align: center;
+}
+
+/* ── Chord Editor ────────────────────────────────────────────────── */
+.sa-editor-card { }
+
+.sa-editor-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+}
+
+.sa-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sa-chord-editor {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    flex-wrap: wrap;
+    min-height: 90px;
+    padding: 4px 0;
+}
+
+.sa-chord-block {
+    flex: var(--bars, 1);
+    min-width: 72px;
+    max-width: 180px;
+    border: 2px solid #e4ddd4;
+    border-radius: 10px;
+    background: #f7f3ec;
+    cursor: pointer;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: border-color 0.15s, background 0.15s;
+    user-select: none;
+}
+
+.sa-chord-block:hover {
+    border-color: #A29BFE;
+    background: #f0ecff;
+}
+
+.sa-chord-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sa-chord-name {
+    font-family: 'Pacifico', cursive;
+    font-size: 1.1rem;
+    color: var(--navy);
+}
+
+.sa-chord-del {
+    width: 16px; height: 16px;
+    border: none; background: transparent;
+    color: #ccc; font-size: 0.85rem;
+    cursor: pointer; padding: 0; line-height: 1;
+    transition: color 0.1s;
+}
+.sa-chord-del:hover { color: var(--coral); }
+
+.sa-chord-bars-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.sa-chord-bars-label {
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: #bbb;
+    min-width: 14px;
+    text-align: right;
+}
+
+.sa-chord-bars-slider {
+    flex: 1;
+    margin: 0;
+    height: 3px;
+    background: #e4ddd4;
+}
+
+.sa-chord-add {
+    align-self: center;
+    padding: 0.4rem 0.9rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    border: 2px dashed #d8d0c8;
+    border-radius: 10px;
+    background: transparent;
+    color: #bbb;
+    transition: all 0.15s;
+    min-height: 70px;
+    min-width: 60px;
+}
+.sa-chord-add:hover { border-color: #A29BFE; color: #A29BFE; }
+
+/* ── Instruments ─────────────────────────────────────────────────── */
+.sa-instruments-section {
+    margin-top: 1rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid #f0e8d8;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.sa-instr-toggles {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    flex: 1;
+}
+
+.sa-instr-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 72px;
+}
+
+.sa-instr-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.sa-instr-toggle input[type="checkbox"] {
+    width: 13px;
+    height: 13px;
+    cursor: pointer;
+}
+
+.sa-instr-vol {
+    width: 100%;
+    height: 4px;
+    margin: 0;
+}
+
+/* ── Arrangement track ───────────────────────────────────────────── */
+.sa-arrangement-card { }
+
+.sa-arr-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.sa-arr-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.sa-arr-track-wrapper {
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.sa-arr-track {
+    display: flex;
+    gap: 5px;
+    min-height: 64px;
+    padding: 4px 0;
+    min-width: max-content;
+    align-items: stretch;
+}
+
+.sa-arr-block {
+    flex: var(--arr-bars, 1);
+    min-width: 80px;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    color: white;
+    position: relative;
+    user-select: none;
+}
+
+.sa-arr-block:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
+.sa-arr-block.sa-arr-playing {
+    box-shadow: 0 0 0 3px var(--navy);
+    transform: scale(1.03) translateY(-2px);
+    z-index: 2;
+}
+
+.sa-arr-block-name {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sa-arr-block-bars {
+    font-size: 0.58rem;
+    font-weight: 600;
+    opacity: 0.75;
+    margin-top: auto;
+}
+
+.sa-arr-block-del {
+    position: absolute;
+    top: 4px; right: 5px;
+    width: 16px; height: 16px;
+    border: none; background: rgba(255,255,255,0.25);
+    border-radius: 3px;
+    color: white; font-size: 0.8rem;
+    cursor: pointer; padding: 0; line-height: 1;
+    opacity: 0; transition: opacity 0.15s;
+}
+.sa-arr-block:hover .sa-arr-block-del { opacity: 1; }
+.sa-arr-block-del:hover { background: rgba(255,255,255,0.4); }
+
+.sa-arr-empty {
+    font-size: 0.78rem;
+    color: #bbb;
+    font-style: italic;
+    padding: 1rem;
+    align-self: center;
+}
+
+/* ── Chord Picker ────────────────────────────────────────────────── */
+.sa-chord-picker {
+    position: absolute;
+    display: none;
+    background: var(--card-bg);
+    border: 2px solid #e8e0d4;
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 10px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06);
+    z-index: 9999;
+    min-width: 256px;
+}
+
+.sa-picker-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--gray);
+    margin-bottom: 6px;
+}
+
+.sa-picker-roots {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 3px;
+}
+
+.sa-picker-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+}
+
+.sa-picker-btn {
+    padding: 5px 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid #e8e0d4;
+    border-radius: 6px;
+    background: #f7f3ec;
+    color: var(--navy);
+    transition: all 0.1s;
+    text-align: center;
+    min-width: 28px;
+}
+.sa-picker-btn:hover { border-color: #A29BFE; background: #f0ecff; }
+.sa-picker-btn.sa-picker-active { background: #A29BFE; border-color: #A29BFE; color: white; }
+
+.sa-picker-type-btn {
+    min-width: 36px;
+    font-size: 0.68rem;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .sa-main-row {
+        grid-template-columns: 1fr;
+    }
+    .sa-sections-card {
+        max-height: none;
+    }
+}
